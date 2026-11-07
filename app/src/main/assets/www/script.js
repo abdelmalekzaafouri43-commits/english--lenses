@@ -7,6 +7,21 @@
 (function () {
   'use strict';
 
+  // Helper for safe API response parsing
+  async function parseApiResponse(response) {
+    const text = await response.text();
+    let result;
+    try {
+      result = text ? JSON.parse(text) : {};
+    } catch (e) {
+      throw new Error(`Server response error (${response.status}): ${text.substring(0, 100)}`);
+    }
+    if (!response.ok) {
+      throw new Error(result.error || `Request failed with status ${response.status}`);
+    }
+    return result;
+  }
+
   /* ==========================================================================
      1. DEFAULT DATA SEED (Mirrors Android Project & SceneItem Data Models)
      ========================================================================== */
@@ -469,11 +484,7 @@
           })
         });
 
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Gemini AI generation failed.');
-        }
+        const result = await parseApiResponse(response);
 
         const generatedData = result.data;
         const generatedScenes = (generatedData.scenes || []).map((s, idx) => ({
@@ -577,10 +588,7 @@
           })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to generate worksheet with Gemini.');
-        }
+        const result = await parseApiResponse(response);
 
         project.aiWorksheetData = result.data;
         StudioState.save();
@@ -740,10 +748,7 @@
           })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to generate quiz with Gemini.');
-        }
+        const result = await parseApiResponse(response);
 
         if (result.data && result.data.questions && result.data.questions.length > 0) {
           StudioState.quiz.items = result.data.questions;
@@ -1492,10 +1497,7 @@
           })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || 'Gemini script polish failed.');
-        }
+        const result = await parseApiResponse(response);
 
         const data = result.data;
         if (data.polishedNarration) {
@@ -1570,10 +1572,7 @@
           body: JSON.stringify({ subject, level })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || 'Gemini reading text generation failed.');
-        }
+        const result = await parseApiResponse(response);
 
         const data = result.data;
         const project = StudioState.getActiveProject();
@@ -1648,10 +1647,7 @@
           body: JSON.stringify({ project: project, userId: "studio_creator" })
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to sync to Firebase.');
-        }
+        const result = await parseApiResponse(response);
 
         showToast(result.message || `Project "${project.title}" saved to Firebase!`, "success");
       } catch (err) {
