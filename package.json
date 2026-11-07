@@ -1,0 +1,13 @@
+{
+  "name": "english-lenses-studio",
+  "version": "1.0.0",
+  "description": "ENGLISH LENSES – AI-Powered Educational Video Studio with Secure Gemini Backend & Firebase",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
