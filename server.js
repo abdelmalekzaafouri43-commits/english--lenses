@@ -191,10 +191,11 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer(async (req, res) => {
-  // CORS & Security headers
+  // CORS & Security headers - always set these
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-gemini-key');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -204,6 +205,8 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
+
+  console.log(`[REQUEST] ${req.method} ${pathname}`);
 
   // JSON helper
   const sendJson = (statusCode, data) => {
@@ -233,7 +236,12 @@ const server = http.createServer(async (req, res) => {
   // --- API ROUTES ---
 
   // Health & Config Check
-  if (pathname === '/api/health' && req.method === 'GET') {
+  if (pathname === '/api/health') {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { 'Allow': 'GET, HEAD' });
+      res.end('Method Not Allowed');
+      return;
+    }
     const hasKey = !!getGeminiApiKey();
     sendJson(200, {
       status: 'ok',
@@ -245,7 +253,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Set / Update Gemini API key
-  if (pathname === '/api/config/gemini-key' && req.method === 'POST') {
+  if (pathname === '/api/config/gemini-key') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       if (body && body.apiKey && body.apiKey.trim()) {
@@ -262,7 +275,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 1. English Lesson Generator
-  if (pathname === '/api/ai/generate-lesson' && req.method === 'POST') {
+  if (pathname === '/api/ai/generate-lesson') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { title, topic, level, durationMinutes, grammar, vocabulary, objectives, contentNotes } = body;
@@ -328,7 +346,12 @@ Respond with a JSON object in this exact schema:
   }
 
   // 2. Worksheet Generator
-  if (pathname === '/api/ai/generate-worksheet' && req.method === 'POST') {
+  if (pathname === '/api/ai/generate-worksheet') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { title, topic, level, grammar, vocabulary, lessonContent } = body;
@@ -369,7 +392,12 @@ Respond with a JSON object matching this schema:
   }
 
   // 3. Quiz and Assessment Generator
-  if (pathname === '/api/ai/generate-quiz' && req.method === 'POST') {
+  if (pathname === '/api/ai/generate-quiz') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { topic, grammar, vocabulary, level } = body;
@@ -405,7 +433,12 @@ Respond with a JSON object strictly matching this schema:
   }
 
   // 4. Educational Video Script Generator
-  if (pathname === '/api/ai/generate-script' && req.method === 'POST') {
+  if (pathname === '/api/ai/generate-script') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { sceneTitle, goal, level, grammar, currentNarration } = body;
@@ -438,7 +471,12 @@ Respond with a JSON object:
   }
 
   // 5. School Topic and Reading Text Generator
-  if (pathname === '/api/ai/generate-reading' && req.method === 'POST') {
+  if (pathname === '/api/ai/generate-reading') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { subject, level, theme } = body;
@@ -472,7 +510,12 @@ Respond with a JSON object:
   }
 
   // 6. Save Project to Firebase Firestore
-  if (pathname === '/api/projects/save-to-firebase' && req.method === 'POST') {
+  if (pathname === '/api/projects/save-to-firebase') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
     try {
       const body = await parseBody();
       const { project, userId } = body;
@@ -516,6 +559,13 @@ Respond with a JSON object:
     return;
   }
 
+  // Reject other API calls with 404
+  if (pathname.startsWith('/api/')) {
+    res.writeHead(404);
+    res.end('API route not found');
+    return;
+  }
+
   // --- STATIC FILE SERVING ---
   let filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
   
@@ -551,7 +601,7 @@ Respond with a JSON object:
   });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`English Lenses Secure AI Backend listening on http://127.0.0.1:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`English Lenses Secure AI Backend listening on http://0.0.0.0:${PORT}`);
   console.log(`Gemini API Key configured: ${!!getGeminiApiKey()}`);
 });
