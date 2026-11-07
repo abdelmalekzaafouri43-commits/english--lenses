@@ -4,14 +4,11 @@
  * Encapsulates all Gemini AI calls securely - NEVER exposes API keys to client
  */
 
-try {
-  require('dotenv').config();
-} catch (e) {
-  // dotenv is optional (e.g. on Render it might not be in node_modules if not installed yet)
-}
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const mammoth = require('mammoth');
 
 const PORT = parseInt(process.env.PORT || process.env.DEFAULT_APP_PORT || '3000', 10);
 
@@ -92,7 +89,7 @@ function getGeminiApiKey(req = null) {
 
 
 // Helper to make secure server-side call to Gemini API
-async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false, req = null) {
+async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false, req = null, fileData = null) {
   const apiKey = getGeminiApiKey(req);
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured. Please add your GEMINI_API_KEY to the AI Studio Secrets panel.');
@@ -100,12 +97,21 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
+  const parts = [{ text: prompt }];
+  
+  if (fileData) {
+    parts.push({
+      inlineData: {
+        mimeType: fileData.mimeType,
+        data: fileData.base64
+      }
+    });
+  }
+
   const requestBody = {
     contents: [
       {
-        parts: [
-          { text: prompt }
-        ]
+        parts: parts
       }
     ],
     generationConfig: {
@@ -125,7 +131,7 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for analysis
 
   try {
     const response = await fetch(endpoint, {
@@ -155,7 +161,7 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('Gemini API request timed out after 45 seconds.');
+      throw new Error('Gemini API request timed out after 60 seconds.');
     }
     throw err;
   }
@@ -252,8 +258,8 @@ const server = http.createServer(async (req, res) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 5 * 1024 * 1024) {
-        reject(new Error('Request body too large'));
+      if (body.length > 15 * 1024 * 1024) {
+        reject(new Error('Request body too large (Max 15MB)'));
       }
     });
     req.on('end', () => {
@@ -542,6 +548,72 @@ Respond with a JSON object:
       sendJson(200, { success: true, data: parsed });
     } catch (err) {
       console.error('Error generating reading:', err.message);
+      sendJson(500, { error: err.message });
+    }
+    return;
+  }
+
+  // NEW: Worksheet Upload & Analysis Generator
+  if (pathname === '/api/ai/analyze-worksheet') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
+    try {
+      const body = await parseBody();
+      const { fileName, mimeType, base64 } = body;
+
+      if (!base64 || !mimeType) {
+        return sendJson(400, { error: 'File data and mimeType are required.' });
+      }
+
+      let analysisPrompt = `
+You are an expert English language materials analyst.
+Analyze the attached worksheet and extract its pedagogical structure.
+Identify the topic, target learner level (CEFR), grammar focus, and key vocabulary.
+Extract any reading passages or main instructional text.
+Identify if there are questions or exercises.
+IMPORTANT: If sections are unreadable or unclear, report them in the "unclearSections" field instead of inventing content.
+
+Respond with a JSON object strictly matching this schema:
+{
+  "title": "Extracted or inferred title",
+  "topic": "Core subject topic",
+  "level": "CEFR Level (e.g. B1)",
+  "grammar": "Target grammar structures identified",
+  "vocabulary": ["word1", "word2", "word3"],
+  "passage": "Full reading passage or main educational text extracted",
+  "hasQuestions": true,
+  "hasVocabularyDrills": true,
+  "unclearSections": "Description of any parts that couldn't be parsed or 'None'"
+}`;
+
+      let aiResponse;
+
+      if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        // Handle DOCX via mammoth extraction
+        const buffer = Buffer.from(base64, 'base64');
+        const docResult = await mammoth.extractRawText({ buffer: buffer });
+        const docText = docResult.value;
+        
+        const textPrompt = `
+${analysisPrompt}
+---
+DOCX CONTENT START:
+${docText}
+DOCX CONTENT END.
+`;
+        aiResponse = await callGeminiApi(textPrompt, 'You are an educational materials analyst.', true);
+      } else {
+        // Handle PDF and Images directly via multimodal Gemini
+        aiResponse = await callGeminiApi(analysisPrompt, 'You are an educational materials analyst.', true, req, { mimeType, base64 });
+      }
+
+      const parsed = parseAiJson(aiResponse);
+      sendJson(200, { success: true, data: parsed });
+    } catch (err) {
+      console.error('Error analyzing worksheet:', err.message);
       sendJson(500, { error: err.message });
     }
     return;

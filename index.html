@@ -46,6 +46,10 @@
           <i class="fa-solid fa-clapperboard"></i>
           <span>Video Studio</span>
         </button>
+        <button class="nav-item" data-view="worksheet-analyzer">
+          <i class="fa-solid fa-file-import"></i>
+          <span>Worksheet Analyzer</span>
+        </button>
         <button class="nav-item" data-view="projects">
           <i class="fa-solid fa-folder-open"></i>
           <span>My Projects</span>
@@ -426,6 +430,98 @@
             <!-- Dynamically populated -->
           </div>
         </section>
+
+        <!-- 7. WORKSHEET ANALYZER VIEW -->
+        <section id="view-worksheet-analyzer" class="studio-view">
+          <div class="view-header">
+            <div>
+              <h2>AI Worksheet Analyzer</h2>
+              <p>Upload existing worksheets to extract pedagogical content and generate lessons</p>
+            </div>
+            <div class="header-actions">
+              <span class="badge badge-purple"><i class="fa-solid fa-bolt"></i> Multimodal Analysis</span>
+            </div>
+          </div>
+
+          <div class="studio-card upload-section-card">
+            <div class="upload-dropzone" id="worksheetDropzone">
+              <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+              <h3>Upload Educational Materials</h3>
+              <p>Drag and drop or click to select your worksheet</p>
+              <span class="upload-formats">Supported: PDF, DOCX, JPG, PNG, WEBP (Max 10MB)</span>
+              <input type="file" id="worksheetFileInput" class="hidden" accept=".pdf,.docx,.jpg,.jpeg,.png,.webp">
+              <button class="btn btn-secondary" id="selectFileBtn">Select File</button>
+              <div id="selectedFileName" class="selected-file-info hidden">
+                <i class="fa-solid fa-file-invoice"></i>
+                <span id="fileNameLabel">No file selected</span>
+                <button class="btn btn-icon" id="clearFileBtn" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+            <div class="analyzer-actions">
+              <button class="btn btn-primary btn-large" id="analyzeWorksheetBtn" disabled>
+                <i class="fa-solid fa-microchip"></i> Analyse Worksheet Content
+              </button>
+            </div>
+          </div>
+
+          <div id="analysisPreviewContainer" class="hidden">
+            <div class="section-header">
+              <h3>Pedagogical Analysis Preview</h3>
+              <p>Review and edit the extracted content before generating your video lesson</p>
+            </div>
+            <div class="studio-card analysis-card">
+              <div class="analysis-grid">
+                <div class="analysis-main">
+                  <div class="form-group">
+                    <label for="analysisTitle">Extracted Title</label>
+                    <input type="text" id="analysisTitle">
+                  </div>
+                  <div class="form-group">
+                    <label for="analysisTopic">Core Topic</label>
+                    <input type="text" id="analysisTopic">
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group flex-1">
+                      <label for="analysisLevel">Learner Level</label>
+                      <input type="text" id="analysisLevel">
+                    </div>
+                    <div class="form-group flex-1">
+                      <label for="analysisGrammar">Grammar Target</label>
+                      <input type="text" id="analysisGrammar">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="analysisVocab">Key Vocabulary</label>
+                    <textarea id="analysisVocab" rows="2"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="analysisPassage">Reading Passage / Content</label>
+                    <textarea id="analysisPassage" rows="6"></textarea>
+                  </div>
+                </div>
+                <div class="analysis-sidebar">
+                  <div class="analysis-status-card">
+                    <h4>Analysis Summary</h4>
+                    <ul class="analysis-stats" id="analysisStatsList">
+                      <li><i class="fa-solid fa-check"></i> Reading Passage Detected</li>
+                      <li><i class="fa-solid fa-check"></i> Grammar Patterns Identified</li>
+                      <li><i class="fa-solid fa-check"></i> Vocabulary Extracted</li>
+                    </ul>
+                  </div>
+                  <div class="unclear-sections hidden" id="unclearSectionsBox">
+                    <h4 class="error-text"><i class="fa-solid fa-triangle-exclamation"></i> Unclear Sections</h4>
+                    <p id="unclearContentLabel"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-outline" id="resetAnalysisBtn">Reset</button>
+                <button class="btn btn-primary btn-large" id="createVideoFromAnalysisBtn">
+                  <i class="fa-solid fa-clapperboard"></i> Create Video from This Worksheet
+                </button>
+              </div>
+            </div>
+          </div>
 
       </div>
     </main>

@@ -430,6 +430,8 @@
         VideoStudioRenderer.render();
       } else if (viewId === "projects") {
         ProjectsRenderer.render();
+      } else if (viewId === "worksheet-analyzer") {
+        // No specific initial render needed for analyzer view
       }
       this.updateSidebarActiveCard();
     },
@@ -1976,7 +1978,6 @@
     }
   };
 
-  // 11.G Video Generator Manager (Feature #6)
   const VideoGeneratorManager = {
     init() {
       // Button listener added in VideoStudioRenderer.init
@@ -2010,11 +2011,9 @@
         
         if (result.videoUrl) {
           showToast("Video rendered successfully!", "success");
-          // Logic to show video player would go here
         }
       } catch (err) {
         console.error('Video rendering error:', err);
-        // Special handling for the 501/Missing components message
         if (err.message.includes("Implemented")) {
            const info = "Actual .mp4 rendering requires FFmpeg server-side. Use 'Live Preview' for now.";
            showToast(info, "info");
@@ -2026,6 +2025,197 @@
         btn.disabled = false;
         btn.innerHTML = originalHtml;
       }
+    }
+  };
+
+  /* ==========================================================================
+     11.5 WORKSHEET ANALYZER MANAGER
+     ========================================================================== */
+  const WorksheetAnalyzerManager = {
+    selectedFile: null,
+    analysisData: null,
+
+    init() {
+      const dropzone = document.getElementById("worksheetDropzone");
+      const fileInput = document.getElementById("worksheetFileInput");
+      const selectBtn = document.getElementById("selectFileBtn");
+      const analyzeBtn = document.getElementById("analyzeWorksheetBtn");
+      const clearBtn = document.getElementById("clearFileBtn");
+      const resetBtn = document.getElementById("resetAnalysisBtn");
+      const createVideoBtn = document.getElementById("createVideoFromAnalysisBtn");
+
+      if (!dropzone) return;
+
+      selectBtn.addEventListener("click", () => fileInput.click());
+      
+      fileInput.addEventListener("change", (e) => this.handleFileSelect(e));
+      
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+        if (e.dataTransfer.files.length > 0) {
+          this.processFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      analyzeBtn.addEventListener("click", () => this.handleAnalyze());
+      if (clearBtn) {
+        clearBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.clearFile();
+        });
+      }
+      if (resetBtn) resetBtn.addEventListener("click", () => this.reset());
+      if (createVideoBtn) createVideoBtn.addEventListener("click", () => this.createVideo());
+    },
+
+    handleFileSelect(e) {
+      if (e.target.files.length > 0) {
+        this.processFile(e.target.files[0]);
+      }
+    },
+
+    processFile(file) {
+      const allowedTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp'
+      ];
+
+      if (!allowedTypes.includes(file.type) && !file.name.endsWith('.docx')) {
+        showToast("Unsupported file format. Please upload PDF, DOCX, or images.", "error");
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        showToast("File too large. Maximum size is 10MB.", "error");
+        return;
+      }
+
+      this.selectedFile = file;
+      document.getElementById("fileNameLabel").textContent = file.name;
+      document.getElementById("selectedFileName").classList.remove("hidden");
+      document.getElementById("analyzeWorksheetBtn").disabled = false;
+    },
+
+    clearFile() {
+      this.selectedFile = null;
+      document.getElementById("worksheetFileInput").value = "";
+      document.getElementById("selectedFileName").classList.add("hidden");
+      document.getElementById("analyzeWorksheetBtn").disabled = true;
+    },
+
+    async handleAnalyze() {
+      if (!this.selectedFile) return;
+
+      const analyzeBtn = document.getElementById("analyzeWorksheetBtn");
+      const originalHtml = analyzeBtn.innerHTML;
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzing with Gemini AI...`;
+
+      try {
+        const base64 = await this.fileToBase64(this.selectedFile);
+        
+        const response = await fetch(API_CONFIG.get('/api/ai/analyze-worksheet'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: this.selectedFile.name,
+            mimeType: this.selectedFile.type || (this.selectedFile.name.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : ''),
+            base64: base64
+          })
+        });
+
+        const result = await parseApiResponse(response);
+        this.analysisData = result.data;
+        this.showAnalysis(result.data);
+        showToast("Worksheet successfully analyzed!", "success");
+      } catch (err) {
+        console.error('Analysis error:', err);
+        showToast(err.message, "error");
+      } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = originalHtml;
+      }
+    },
+
+    fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+      });
+    },
+
+    showAnalysis(data) {
+      document.getElementById("analysisTitle").value = data.title || "";
+      document.getElementById("analysisTopic").value = data.topic || "";
+      document.getElementById("analysisLevel").value = data.level || "";
+      document.getElementById("analysisGrammar").value = data.grammar || "";
+      document.getElementById("analysisVocab").value = (data.vocabulary || []).join(", ");
+      document.getElementById("analysisPassage").value = data.passage || "";
+
+      const statsList = document.getElementById("analysisStatsList");
+      statsList.innerHTML = "";
+      if (data.passage) statsList.innerHTML += `<li><i class="fa-solid fa-check"></i> Reading Passage Detected</li>`;
+      if (data.grammar) statsList.innerHTML += `<li><i class="fa-solid fa-check"></i> Grammar Patterns Identified</li>`;
+      if (data.vocabulary && data.vocabulary.length > 0) statsList.innerHTML += `<li><i class="fa-solid fa-check"></i> ${data.vocabulary.length} Vocabulary Words Extracted</li>`;
+      if (data.hasQuestions) statsList.innerHTML += `<li><i class="fa-solid fa-check"></i> Exercises/Questions Identified</li>`;
+
+      const unclearBox = document.getElementById("unclearSectionsBox");
+      if (data.unclearSections && data.unclearSections.toLowerCase() !== 'none') {
+        unclearBox.classList.remove("hidden");
+        document.getElementById("unclearContentLabel").textContent = data.unclearSections;
+      } else {
+        unclearBox.classList.add("hidden");
+      }
+
+      document.getElementById("analysisPreviewContainer").classList.remove("hidden");
+      document.getElementById("analysisPreviewContainer").scrollIntoView({ behavior: 'smooth' });
+    },
+
+    reset() {
+      this.analysisData = null;
+      document.getElementById("analysisPreviewContainer").classList.add("hidden");
+      this.clearFile();
+    },
+
+    createVideo() {
+      if (!this.analysisData) return;
+
+      // Transfer data to Lesson Generator
+      document.getElementById("lessonTitle").value = document.getElementById("analysisTitle").value;
+      document.getElementById("lessonTopic").value = document.getElementById("analysisTopic").value;
+      document.getElementById("lessonLevel").value = this.mapLevel(document.getElementById("analysisLevel").value);
+      document.getElementById("lessonGrammar").value = document.getElementById("analysisGrammar").value;
+      document.getElementById("lessonVocab").value = document.getElementById("analysisVocab").value;
+      document.getElementById("lessonContentNotes").value = document.getElementById("analysisPassage").value;
+
+      showToast("Transferring worksheet content to Lesson Generator...", "info");
+      NavigationRouter.navigateTo("lesson-generator");
+    },
+
+    mapLevel(levelStr) {
+      if (!levelStr) return "Intermediate (B1)";
+      const l = levelStr.toUpperCase();
+      if (l.includes("A1")) return "Beginner (A1)";
+      if (l.includes("A2")) return "Elementary (A2)";
+      if (l.includes("B1")) return "Intermediate (B1)";
+      if (l.includes("B2")) return "Upper-Intermediate (B2)";
+      if (l.includes("C1")) return "Advanced (C1)";
+      return "Intermediate (B1)"; // Default
     }
   };
 
@@ -2083,6 +2273,7 @@
     ScriptCoachManager.init();
     ReadingGeneratorManager.init();
     VideoGeneratorManager.init();
+    WorksheetAnalyzerManager.init();
 
     NavigationRouter.updateSidebarActiveCard();
     console.log("English Lenses Educational Video Studio ready. Connected to Secure Gemini AI Backend.");
