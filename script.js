@@ -23,6 +23,21 @@
   }
 
   /* ==========================================================================
+     0. API CONFIGURATION
+     ========================================================================== */
+  const API_CONFIG = {
+    // Detect if running locally or on production (GitHub Pages)
+    // IMPORTANT: Replace this placeholder with your actual Render URL after deployment
+    BASE_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+      ? '' 
+      : 'https://english-lenses-backend.onrender.com',
+    
+    get(path) {
+      return this.BASE_URL + path;
+    }
+  };
+
+  /* ==========================================================================
      1. DEFAULT DATA SEED (Mirrors Android Project & SceneItem Data Models)
      ========================================================================== */
   const INITIAL_DEMO_PROJECTS = [
@@ -537,7 +552,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini AI...`;
 
       try {
-        const response = await fetch('/api/ai/generate-lesson', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-lesson'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -643,7 +658,7 @@
       regenBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini...`;
 
       try {
-        const response = await fetch('/api/ai/generate-worksheet', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-worksheet'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -805,7 +820,7 @@
       generateBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini...`;
 
       try {
-        const response = await fetch('/api/ai/generate-quiz', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-quiz'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1029,6 +1044,13 @@
       if (scrubber) {
         scrubber.addEventListener("input", (e) => {
           this.seekToPercent(parseFloat(e.target.value));
+        });
+      }
+
+      const genVideoBtn = document.getElementById("generateVideoBtn");
+      if (genVideoBtn) {
+        genVideoBtn.addEventListener("click", () => {
+          VideoGeneratorManager.handleGenerate();
         });
       }
     },
@@ -1553,7 +1575,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Polishing Narration...`;
 
       try {
-        const response = await fetch('/api/ai/generate-script', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-script'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1634,7 +1656,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Reading Passage...`;
 
       try {
-        const response = await fetch('/api/ai/generate-reading', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-reading'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subject, level })
@@ -1709,7 +1731,7 @@
       }
 
       try {
-        const response = await fetch('/api/projects/save-to-firebase', {
+        const response = await fetch(API_CONFIG.get('/api/projects/save-to-firebase'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ project: project, userId: "studio_creator" })
@@ -1951,6 +1973,59 @@
     }
   };
 
+  // 11.G Video Generator Manager (Feature #6)
+  const VideoGeneratorManager = {
+    init() {
+      // Button listener added in VideoStudioRenderer.init
+    },
+
+    async handleGenerate() {
+      const project = StudioState.getActiveProject();
+      if (!project || !project.scenes || project.scenes.length === 0) {
+        showToast("No scenes available to render.", "error");
+        return;
+      }
+
+      const btn = document.getElementById("generateVideoBtn");
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Rendering MP4...`;
+
+      try {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-video'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: project.id,
+            title: project.title,
+            scenes: project.scenes
+          })
+        });
+
+        // The backend currently returns 501 (Not Implemented) with an explanation.
+        const result = await parseApiResponse(response);
+        
+        if (result.videoUrl) {
+          showToast("Video rendered successfully!", "success");
+          // Logic to show video player would go here
+        }
+      } catch (err) {
+        console.error('Video rendering error:', err);
+        // Special handling for the 501/Missing components message
+        if (err.message.includes("Implemented")) {
+           const info = "Actual .mp4 rendering requires FFmpeg server-side. Use 'Live Preview' for now.";
+           showToast(info, "info");
+           alert("PROJECT ARCHITECTURE NOTE:\n\n" + err.message + "\n\nTo enable real video files, you must deploy a rendering worker with FFmpeg. The current Studio supports high-fidelity Live Storyboard Playback.");
+        } else {
+          showToast(err.message, "error");
+        }
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+  };
+
   /* ==========================================================================
      12. UTILITY HELPERS
      ========================================================================== */
@@ -1989,6 +2064,7 @@
     SceneModalManager.init();
     ScriptCoachManager.init();
     ReadingGeneratorManager.init();
+    VideoGeneratorManager.init();
 
     NavigationRouter.updateSidebarActiveCard();
     console.log("English Lenses Educational Video Studio ready. Connected to Secure Gemini AI Backend.");

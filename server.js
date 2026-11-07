@@ -4,11 +4,12 @@
  * Encapsulates all Gemini AI calls securely - NEVER exposes API keys to client
  */
 
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = parseInt(process.env.DEFAULT_APP_PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || process.env.DEFAULT_APP_PORT || '3000', 10);
 
 let inMemoryApiKey = null;
 
@@ -93,7 +94,7 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
     throw new Error('GEMINI_API_KEY is not configured. Please add your GEMINI_API_KEY to the AI Studio Secrets panel.');
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const requestBody = {
     contents: [
@@ -192,7 +193,22 @@ const MIME_TYPES = {
 
 const server = http.createServer(async (req, res) => {
   // CORS & Security headers - always set these
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://abdelmalekzaafouri43-commits.github.io',
+    'https://abdelmalekzaafouri43-commits.github.io/English-worksheets-studio',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080'
+  ];
+  
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.github.io'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-gemini-key');
   res.setHeader('Access-Control-Max-Age', '86400');
@@ -206,7 +222,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
-  console.log(`[REQUEST] ${req.method} ${pathname}`);
+  console.log(`[REQUEST] ${req.method} ${pathname} (Origin: ${origin || 'no-origin'})`);
 
   // JSON helper
   const sendJson = (statusCode, data) => {
@@ -246,7 +262,7 @@ const server = http.createServer(async (req, res) => {
     sendJson(200, {
       status: 'ok',
       hasGeminiApiKey: hasKey,
-      engine: 'Gemini 2.5 Flash',
+      engine: 'Gemini 1.5 Flash',
       service: 'English Lenses Secure Studio Backend'
     });
     return;
@@ -509,7 +525,30 @@ Respond with a JSON object:
     return;
   }
 
-  // 6. Save Project to Firebase Firestore
+  // 6. Real Video Generation Service (Placeholder/Explanation)
+  if (pathname === '/api/ai/generate-video') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Allow': 'POST' });
+      res.end('Method Not Allowed');
+      return;
+    }
+    
+    // EXPLANATION OF MISSING COMPONENTS:
+    // To render a "Real Playable Video" (.mp4), the following is required:
+    // 1. A rendering engine like FFmpeg installed on the server.
+    // 2. A library like Remotion or a service like Shotstack to choreograph assets.
+    // 3. Cloud Storage (S3/Firebase Storage) to host the generated .mp4 file.
+    // 4. A background worker (Queue) as rendering takes 1-5 minutes.
+    
+    sendJson(501, { 
+      error: 'Real Video Rendering Not Implemented',
+      message: 'Actual .mp4 video generation requires a rendering worker (FFmpeg) and cloud storage. Currently, only "Live Storyboard Playback" is supported in the Studio.',
+      missingComponents: ['FFmpeg Binary', 'Asset Storage (S3/GCS)', 'Rendering Worker Queue']
+    });
+    return;
+  }
+
+  // 7. Save Project to Firebase Firestore
   if (pathname === '/api/projects/save-to-firebase') {
     if (req.method !== 'POST') {
       res.writeHead(405, { 'Allow': 'POST' });

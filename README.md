@@ -53,9 +53,27 @@ gradle :app:assembleDebug
 
 ---
 
+## Deployment Guide (Render)
+
+To deploy the **ENGLISH LENSES** backend securely on Render:
+
+1.  **Create a New Web Service**: Connect your GitHub repository to Render.
+2.  **Environment Settings**:
+    - **Runtime**: `Node`
+    - **Build Command**: `npm install` (though dependencies are currently minimal)
+    - **Start Command**: `node server.js`
+3.  **Environment Variables**:
+    - Add `GEMINI_API_KEY`: Your valid API key from Google AI Studio.
+    - Add `PORT`: `3000` (Render will override this, which `server.js` handles).
+4.  **Frontend Update**:
+    - Once deployed, Render provides a URL (e.g., `https://your-app.onrender.com`).
+    - Update `API_CONFIG.BASE_URL` in `script.js` with this URL to connect your GitHub Pages frontend to the new backend.
+
+---
+
 ## Deployment Instructions
 
-1. **Web Deployment**: Deploy `server.js`, `index.html`, `script.js`, and `style.css` to any Node.js hosting platform (e.g., Google Cloud Run, Heroku, Render). Set `GEMINI_API_KEY` in your production environment variables.
+1. **Web Deployment**: Deploy `server.js`, `index.html`, `script.js`, and `style.css` to Render following the guide above.
 2. **Firebase Setup**: Deploy Firestore security rules using Firebase CLI:
    ```bash
    firebase deploy --only firestore:rules
