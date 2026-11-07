@@ -26,11 +26,14 @@
      0. API CONFIGURATION
      ========================================================================== */
   const API_CONFIG = {
-    // Detect if running locally or on production (GitHub Pages)
+    // Detect if running locally, on AI Studio Preview, or on production (GitHub Pages)
     // IMPORTANT: Replace this placeholder with your actual Render URL after deployment
-    BASE_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-      ? '' 
-      : 'https://english-lenses-backend.onrender.com',
+    BASE_URL: (
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.includes('run.app') ||
+      window.location.hostname.includes('aistudio.google.com')
+    ) ? '' : 'https://english-lenses-backend.onrender.com',
     
     get(path) {
       return this.BASE_URL + path;
@@ -2051,6 +2054,21 @@
   document.addEventListener("DOMContentLoaded", () => {
     StudioState.init();
     NavigationRouter.init();
+    
+    // Perform Backend Health Check
+    fetch(API_CONFIG.get('/api/health'))
+      .then(r => r.json())
+      .then(data => {
+        console.log("Backend Connected:", data);
+        if (!data.hasGeminiApiKey) {
+          showToast("Gemini API Key missing in backend config.", "error");
+        }
+      })
+      .catch(err => {
+        console.error("Backend unreachable:", err);
+        showToast("Backend connection failed. Please verify your Render URL.", "error");
+      });
+
     DashboardRenderer.render();
     LessonGeneratorController.init();
     WorksheetRenderer.init();

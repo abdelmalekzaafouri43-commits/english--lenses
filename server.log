@@ -1,4 +1,3 @@
 English Lenses Secure AI Backend listening on http://0.0.0.0:3000
 Gemini API Key configured: true
-[REQUEST] POST /api/ai/generate-lesson
-Error generating lesson: Requests to this API generativelanguage.googleapis.com method google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent are blocked.
+[REQUEST] POST /api/ai/generate-video (Origin: no-origin)

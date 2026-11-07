@@ -4,7 +4,11 @@
  * Encapsulates all Gemini AI calls securely - NEVER exposes API keys to client
  */
 
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv is optional (e.g. on Render it might not be in node_modules if not installed yet)
+}
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -203,10 +207,23 @@ const server = http.createServer(async (req, res) => {
     'http://127.0.0.1:8080'
   ];
   
-  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.github.io'))) {
+  // Robust CORS Origin Matching
+  const isAllowed = origin && (
+    allowedOrigins.includes(origin) || 
+    origin.endsWith('.github.io') || 
+    origin.includes('europe-west2.run.app') || // AI Studio Preview
+    origin.includes('aistudio.google.com')
+  );
+
+  if (isAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   } else {
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    // For non-allowed origins during debug, still allow but log it
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    console.warn(`[CORS] Warning: Unauthorized origin attempted connection: ${origin}`);
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -263,7 +280,12 @@ const server = http.createServer(async (req, res) => {
       status: 'ok',
       hasGeminiApiKey: hasKey,
       engine: 'Gemini 1.5 Flash',
-      service: 'English Lenses Secure Studio Backend'
+      service: 'English Lenses Secure Studio Backend',
+      diagnostics: {
+        method: req.method,
+        origin: origin || 'none',
+        ip: req.socket.remoteAddress
+      }
     });
     return;
   }
