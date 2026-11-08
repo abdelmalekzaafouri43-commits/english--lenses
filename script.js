@@ -33,7 +33,7 @@
       window.location.hostname === '127.0.0.1' ||
       window.location.hostname.includes('run.app') ||
       window.location.hostname.includes('aistudio.google.com')
-    ) ? '' : 'https://english-lenses-backend.onrender.com',
+    ) ? '' : 'https://english-lenses-api.vercel.app',
     
     get(path) {
       return this.BASE_URL + path;
