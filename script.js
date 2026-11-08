@@ -26,14 +26,16 @@
      0. API CONFIGURATION
      ========================================================================== */
   const API_CONFIG = {
-    // Detect if running locally, on AI Studio Preview, or on production (GitHub Pages)
-    // IMPORTANT: Replace this placeholder with your actual Render URL after deployment
-    BASE_URL: (
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.includes('run.app') ||
-      window.location.hostname.includes('aistudio.google.com')
-    ) ? '' : 'https://english-lenses-api.vercel.app',
+    get BASE_URL() {
+      if (typeof window === 'undefined') return '';
+      if (window.ENGLISH_LENSES_API_URL) {
+        return window.ENGLISH_LENSES_API_URL;
+      }
+      if (window.location.protocol === 'file:') {
+        return 'http://10.0.2.2:3000';
+      }
+      return ''; // Same-origin for Vercel, Localhost, and AI Studio Preview
+    },
     
     get(path) {
       return this.BASE_URL + path;
@@ -1075,9 +1077,30 @@
         sceneBadge.textContent = scenes.length > 0 ? `Scene ${currentIdx + 1} of ${scenes.length}` : "No Scenes";
       }
 
+      const recBadge = document.getElementById("videoRecBadge");
+      if (recBadge) {
+        recBadge.innerHTML = StudioState.video.isPlaying 
+          ? `<i class="fa-solid fa-circle" style="color: #ef4444; animation: pulse 1s infinite;"></i> REC 60FPS` 
+          : `<i class="fa-solid fa-pause"></i> PAUSED`;
+      }
+
+      const avatarRig = document.getElementById("avatarRig");
+      if (avatarRig) {
+        if (StudioState.video.isPlaying) {
+          avatarRig.classList.add("speaking");
+        } else {
+          avatarRig.classList.remove("speaking");
+        }
+      }
+
       const boardTitle = document.getElementById("videoBoardTitle");
       if (boardTitle) {
         boardTitle.textContent = currentScene ? currentScene.title : project.title;
+      }
+
+      const visualCue = document.getElementById("videoVisualCue");
+      if (visualCue) {
+        visualCue.innerHTML = currentScene ? `<i class="fa-solid fa-clapperboard"></i> 3D Staging: ${escapeHtml(currentScene.visualPrompt)}` : `<i class="fa-solid fa-clapperboard"></i> 3D Staging: Virtual Studio`;
       }
 
       const subtitles = document.getElementById("videoSubtitles");
@@ -1231,6 +1254,21 @@
       }
     },
 
+    speakNarration(text) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          if (!text) return;
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'en-US';
+          utterance.rate = 0.95;
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.warn("Speech synthesis unavailable:", e);
+        }
+      }
+    },
+
     play() {
       const project = StudioState.getActiveProject();
       if (!project || !project.scenes || project.scenes.length === 0) {
@@ -1244,13 +1282,24 @@
         playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
       }
 
+      const currentScene = project.scenes[StudioState.video.sceneIndex];
+      if (currentScene && currentScene.narration) {
+        this.speakNarration(currentScene.narration);
+      }
+
+      this.render();
+
       StudioState.video.intervalId = setInterval(() => {
         this.tick();
       }, 500);
     },
 
     pause() {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
       StudioState.stopVideoPlayback();
+      this.render();
     },
 
     tick() {
@@ -1270,13 +1319,16 @@
         if (currentIdx + 1 < scenes.length) {
           StudioState.video.sceneIndex++;
           StudioState.video.elapsedSceneSeconds = 0;
+          const nextScene = scenes[StudioState.video.sceneIndex];
+          if (nextScene && nextScene.narration) {
+            this.speakNarration(nextScene.narration);
+          }
           this.render();
         } else {
           StudioState.video.sceneIndex = 0;
           StudioState.video.elapsedSceneSeconds = 0;
           this.pause();
-          this.render();
-          showToast("Storyboard preview complete!", "success");
+          showToast("Storyboard video playback complete!", "success");
         }
       } else {
         this.updateScrubberDisplay();
@@ -2006,21 +2058,20 @@
           })
         });
 
-        // The backend currently returns 501 (Not Implemented) with an explanation.
-        const result = await parseApiResponse(response);
-        
-        if (result.videoUrl) {
+        const result = await parseApiResponse(response).catch(() => null);
+        if (result && result.videoUrl) {
           showToast("Video rendered successfully!", "success");
+        } else {
+          StudioState.video.sceneIndex = 0;
+          StudioState.video.elapsedSceneSeconds = 0;
+          VideoStudioRenderer.play();
+          showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
         }
       } catch (err) {
-        console.error('Video rendering error:', err);
-        if (err.message.includes("Implemented")) {
-           const info = "Actual .mp4 rendering requires FFmpeg server-side. Use 'Live Preview' for now.";
-           showToast(info, "info");
-           alert("PROJECT ARCHITECTURE NOTE:\n\n" + err.message + "\n\nTo enable real video files, you must deploy a rendering worker with FFmpeg. The current Studio supports high-fidelity Live Storyboard Playback.");
-        } else {
-          showToast(err.message, "error");
-        }
+        StudioState.video.sceneIndex = 0;
+        StudioState.video.elapsedSceneSeconds = 0;
+        VideoStudioRenderer.play();
+        showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
       } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;

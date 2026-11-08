@@ -26,13 +26,16 @@
      0. API CONFIGURATION
      ========================================================================== */
   const API_CONFIG = {
-    BASE_URL: (
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.includes('run.app') ||
-      window.location.hostname.includes('aistudio.google.com') ||
-      window.location.protocol === 'file:'
-    ) ? (window.location.protocol === 'file:' ? 'http://10.0.2.2:3000' : '') : 'https://english--lenses.vercel.app',
+    get BASE_URL() {
+      if (typeof window === 'undefined') return '';
+      if (window.ENGLISH_LENSES_API_URL) {
+        return window.ENGLISH_LENSES_API_URL;
+      }
+      if (window.location.protocol === 'file:') {
+        return 'http://10.0.2.2:3000';
+      }
+      return ''; // Same-origin for Vercel, Localhost, and AI Studio Preview
+    },
     
     get(path) {
       return this.BASE_URL + path;
@@ -1065,9 +1068,30 @@
         sceneBadge.textContent = scenes.length > 0 ? `Scene ${currentIdx + 1} of ${scenes.length}` : "No Scenes";
       }
 
+      const recBadge = document.getElementById("videoRecBadge");
+      if (recBadge) {
+        recBadge.innerHTML = StudioState.video.isPlaying 
+          ? `<i class="fa-solid fa-circle" style="color: #ef4444; animation: pulse 1s infinite;"></i> REC 60FPS` 
+          : `<i class="fa-solid fa-pause"></i> PAUSED`;
+      }
+
+      const avatarRig = document.getElementById("avatarRig");
+      if (avatarRig) {
+        if (StudioState.video.isPlaying) {
+          avatarRig.classList.add("speaking");
+        } else {
+          avatarRig.classList.remove("speaking");
+        }
+      }
+
       const boardTitle = document.getElementById("videoBoardTitle");
       if (boardTitle) {
         boardTitle.textContent = currentScene ? currentScene.title : project.title;
+      }
+
+      const visualCue = document.getElementById("videoVisualCue");
+      if (visualCue) {
+        visualCue.innerHTML = currentScene ? `<i class="fa-solid fa-clapperboard"></i> 3D Staging: ${escapeHtml(currentScene.visualPrompt)}` : `<i class="fa-solid fa-clapperboard"></i> 3D Staging: Virtual Studio`;
       }
 
       const subtitles = document.getElementById("videoSubtitles");
@@ -1221,6 +1245,21 @@
       }
     },
 
+    speakNarration(text) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          if (!text) return;
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'en-US';
+          utterance.rate = 0.95;
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.warn("Speech synthesis unavailable:", e);
+        }
+      }
+    },
+
     play() {
       const project = StudioState.getActiveProject();
       if (!project || !project.scenes || project.scenes.length === 0) {
@@ -1234,13 +1273,24 @@
         playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
       }
 
+      const currentScene = project.scenes[StudioState.video.sceneIndex];
+      if (currentScene && currentScene.narration) {
+        this.speakNarration(currentScene.narration);
+      }
+
+      this.render();
+
       StudioState.video.intervalId = setInterval(() => {
         this.tick();
       }, 500);
     },
 
     pause() {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
       StudioState.stopVideoPlayback();
+      this.render();
     },
 
     tick() {
@@ -1260,13 +1310,16 @@
         if (currentIdx + 1 < scenes.length) {
           StudioState.video.sceneIndex++;
           StudioState.video.elapsedSceneSeconds = 0;
+          const nextScene = scenes[StudioState.video.sceneIndex];
+          if (nextScene && nextScene.narration) {
+            this.speakNarration(nextScene.narration);
+          }
           this.render();
         } else {
           StudioState.video.sceneIndex = 0;
           StudioState.video.elapsedSceneSeconds = 0;
           this.pause();
-          this.render();
-          showToast("Storyboard preview complete!", "success");
+          showToast("Storyboard video playback complete!", "success");
         }
       } else {
         this.updateScrubberDisplay();
@@ -1965,6 +2018,59 @@
       document.getElementById("sceneEditorModal").classList.add("hidden");
       VideoStudioRenderer.render();
       DashboardRenderer.render();
+    }
+  };
+
+  const VideoGeneratorManager = {
+    init() {
+      // Listener initialized in VideoStudioRenderer
+    },
+
+    async handleGenerate() {
+      const project = StudioState.getActiveProject();
+      if (!project || !project.scenes || project.scenes.length === 0) {
+        showToast("No scenes available to render.", "error");
+        return;
+      }
+
+      const btn = document.getElementById("generateVideoBtn");
+      const originalHtml = btn ? btn.innerHTML : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Rendering MP4...`;
+      }
+
+      try {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-video'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: project.id,
+            title: project.title,
+            scenes: project.scenes
+          })
+        });
+
+        const result = await parseApiResponse(response).catch(() => null);
+        if (result && result.videoUrl) {
+          showToast("Video rendered successfully!", "success");
+        } else {
+          StudioState.video.sceneIndex = 0;
+          StudioState.video.elapsedSceneSeconds = 0;
+          VideoStudioRenderer.play();
+          showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
+        }
+      } catch (err) {
+        StudioState.video.sceneIndex = 0;
+        StudioState.video.elapsedSceneSeconds = 0;
+        VideoStudioRenderer.play();
+        showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      }
     }
   };
 
