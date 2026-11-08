@@ -2247,7 +2247,13 @@
     
     // Perform Backend Health Check
     fetch(API_CONFIG.get('/api/health'))
-      .then(r => r.json())
+      .then(r => {
+        const contentType = r.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return r.json();
+        }
+        throw new Error("Non-JSON response (Sandbox auth proxy)");
+      })
       .then(data => {
         console.log("Backend Connected:", data);
         if (!data.hasGeminiApiKey) {
@@ -2255,8 +2261,7 @@
         }
       })
       .catch(err => {
-        console.error("Backend unreachable:", err);
-        showToast("Backend connection failed. Please verify your Render URL.", "error");
+        console.warn("Backend health check notice:", err.message);
       });
 
     DashboardRenderer.render();

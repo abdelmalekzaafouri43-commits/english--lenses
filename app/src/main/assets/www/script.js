@@ -23,6 +23,23 @@
   }
 
   /* ==========================================================================
+     0. API CONFIGURATION
+     ========================================================================== */
+  const API_CONFIG = {
+    BASE_URL: (
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.includes('run.app') ||
+      window.location.hostname.includes('aistudio.google.com') ||
+      window.location.protocol === 'file:'
+    ) ? (window.location.protocol === 'file:' ? 'http://10.0.2.2:3000' : '') : 'https://english--lenses.vercel.app',
+    
+    get(path) {
+      return this.BASE_URL + path;
+    }
+  };
+
+  /* ==========================================================================
      1. DEFAULT DATA SEED (Mirrors Android Project & SceneItem Data Models)
      ========================================================================== */
   const INITIAL_DEMO_PROJECTS = [
@@ -537,7 +554,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini AI...`;
 
       try {
-        const response = await fetch('/api/ai/generate-lesson', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-lesson'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -643,7 +660,7 @@
       regenBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini...`;
 
       try {
-        const response = await fetch('/api/ai/generate-worksheet', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-worksheet'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -805,7 +822,7 @@
       generateBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating with Gemini...`;
 
       try {
-        const response = await fetch('/api/ai/generate-quiz', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-quiz'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1553,7 +1570,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Polishing Narration...`;
 
       try {
-        const response = await fetch('/api/ai/generate-script', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-script'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1634,7 +1651,7 @@
       submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Reading Passage...`;
 
       try {
-        const response = await fetch('/api/ai/generate-reading', {
+        const response = await fetch(API_CONFIG.get('/api/ai/generate-reading'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subject, level })
@@ -1709,7 +1726,7 @@
       }
 
       try {
-        const response = await fetch('/api/projects/save-to-firebase', {
+        const response = await fetch(API_CONFIG.get('/api/projects/save-to-firebase'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ project: project, userId: "studio_creator" })
