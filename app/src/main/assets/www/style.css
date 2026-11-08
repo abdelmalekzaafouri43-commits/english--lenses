@@ -997,11 +997,22 @@ body {
 .video-screen {
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at center, #1E1B4B 0%, #090D16 80%);
+  background: #090D16;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+
+.video-screen canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
 }
 
 .video-canvas-overlay {
@@ -1011,6 +1022,8 @@ body {
   flex-direction: column;
   justify-content: space-between;
   padding: 18px;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .video-header-status {
