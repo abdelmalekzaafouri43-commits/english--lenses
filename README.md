@@ -6,10 +6,10 @@ ENGLISH LENSES is a professional educational platform and studio that transforms
 
 ## Architecture & Features
 
-1. **Secure Gemini AI Backend (`server.js`)**:
-   - Node.js backend proxy running on port 3000.
-   - Encapsulates `GEMINI_API_KEY` server-side, ensuring API keys are never exposed in frontend browser JavaScript.
-   - Powers 5 core generators:
+1. **Secure Vercel Serverless Backend (`/api/**/*.js`)**:
+   - High-performance serverless functions handling AI generation routes securely.
+   - Encapsulates `GEMINI_API_KEY` server-side, ensuring API keys are never exposed in frontend browser JavaScript or Android APKs.
+   - Powers 5 core AI generators:
      - English Lesson Generator (3-scene pedagogical storyboards)
      - Worksheet Generator (vocabulary matching, cloze drills, and scenario analysis)
      - Quiz & Assessment Generator (multiple-choice evaluation with explanations)
@@ -38,14 +38,19 @@ Never commit `.env` containing your actual API keys. Use `.env.example` as a tem
 GEMINI_API_KEY=your_actual_gemini_api_key_here
 ```
 
-### 2. Run the Web Studio & Secure Backend
+### 2. Run the Web Studio & Local Dev Server
 ```bash
 npm install
 npm start
 ```
 Open `http://localhost:3000` in your browser.
 
-### 3. Run Android Application
+### 3. Run Automated Tests
+```bash
+npm test
+```
+
+### 4. Run Android Application
 Open the project root in Android Studio or compile via Gradle:
 ```bash
 gradle :app:assembleDebug
@@ -53,27 +58,21 @@ gradle :app:assembleDebug
 
 ---
 
-## Deployment Guide (Render)
+## Deployment Guide (Vercel)
 
-To deploy the **ENGLISH LENSES** backend securely on Render:
+To deploy the **ENGLISH LENSES** backend and frontend on Vercel:
 
-1.  **Create a New Web Service**: Connect your GitHub repository to Render.
-2.  **Environment Settings**:
-    - **Runtime**: `Node`
-    - **Build Command**: `npm install` (though dependencies are currently minimal)
-    - **Start Command**: `node server.js`
-3.  **Environment Variables**:
-    - Add `GEMINI_API_KEY`: Your valid API key from Google AI Studio.
-    - Add `PORT`: `3000` (Render will override this, which `server.js` handles).
-4.  **Frontend Update**:
-    - Once deployed, Render provides a URL (e.g., `https://your-app.onrender.com`).
-    - Update `API_CONFIG.BASE_URL` in `script.js` with this URL to connect your GitHub Pages frontend to the new backend.
+1. **Import Repository**: Connect your GitHub repository (`english--lenses`) to Vercel.
+2. **Build Settings**: Vercel automatically detects `vercel.json` and configures serverless functions under `/api/` and static assets.
+3. **Environment Variables**:
+   - Add `GEMINI_API_KEY`: Your valid API key from Google AI Studio.
+4. **Deploy**: Click Deploy. Vercel provisions your serverless endpoints and connects them to your web and Android applications.
 
 ---
 
 ## Deployment Instructions
 
-1. **Web Deployment**: Deploy `server.js`, `index.html`, `script.js`, and `style.css` to Render following the guide above.
+1. **Web Deployment**: Deploy to Vercel following the guide above.
 2. **Firebase Setup**: Deploy Firestore security rules using Firebase CLI:
    ```bash
    firebase deploy --only firestore:rules
