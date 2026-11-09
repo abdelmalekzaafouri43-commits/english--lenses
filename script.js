@@ -239,7 +239,8 @@
       sceneIndex: 0,
       elapsedSceneSeconds: 0,
       intervalId: null,
-      aspectRatio: "16:9"
+      aspectRatio: "16:9",
+      isExporting: false
     },
     quiz: {
       items: [],
@@ -2459,37 +2460,55 @@
         return;
       }
 
+      const canvas = document.getElementById("videoStageCanvas");
+      if (!canvas) {
+        showToast("Video stage not initialized.", "error");
+        return;
+      }
+
       const btn = document.getElementById("generateVideoBtn");
       const originalHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Rendering MP4...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recording MP4...`;
+      StudioState.video.isExporting = true;
 
       try {
-        const response = await fetch(API_CONFIG.get('/api/ai/generate-video'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectId: project.id,
-            title: project.title,
-            scenes: project.scenes
-          })
-        });
+        const stream = canvas.captureStream(60);
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+        const chunks = [];
 
-        const result = await parseApiResponse(response).catch(() => null);
-        if (result && result.videoUrl) {
-          showToast("Video rendered successfully!", "success");
-        } else {
-          StudioState.video.sceneIndex = 0;
-          StudioState.video.elapsedSceneSeconds = 0;
-          VideoStudioRenderer.play();
-          showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
-        }
-      } catch (err) {
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${project.title.replace(/\s+/g, '_')}_lesson.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("MP4 Export Complete!", "success");
+          StudioState.video.isExporting = false;
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        };
+
+        // Reset to beginning and play for recording
         StudioState.video.sceneIndex = 0;
         StudioState.video.elapsedSceneSeconds = 0;
         VideoStudioRenderer.play();
-        showToast("Playing Live 3D Interactive Video Studio Preview!", "success");
-      } finally {
+        mediaRecorder.start();
+
+        // Calculate total duration
+        const totalDurationMs = project.scenes.reduce((a, b) => a + b.durationSeconds, 0) * 1000;
+        setTimeout(() => {
+          mediaRecorder.stop();
+          VideoStudioRenderer.pause();
+        }, totalDurationMs + 1000);
+
+      } catch (err) {
+        console.error('Recording error:', err);
+        showToast("Recording failed: " + err.message, "error");
+        StudioState.video.isExporting = false;
         btn.disabled = false;
         btn.innerHTML = originalHtml;
       }
