@@ -47,6 +47,95 @@
      ========================================================================== */
   const INITIAL_DEMO_PROJECTS = [
     {
+      id: "demo_project_eep",
+      userId: "studio_demo",
+      title: "Everyday Idioms: 'Take It or Leave It'",
+      topic: "Daily Conversation, Vocabulary & Shadowing",
+      schoolLevel: "Intermediate (B1)",
+      durationMinutes: 2,
+      objectives: "Understand conversational idioms in context, practice listen-and-answer reflexes, and build natural rhythm via shadowing.",
+      vocabulary: "take it or leave it, on the fence, sleep on it",
+      grammar: "Idiomatic Expressions & Polite Decision Making",
+      lessonContent: "Alex and Maya meet at a cozy cafe to discuss a big job offer using everyday English idioms, followed by vocabulary breakdown, speaking pause prompts, and shadowing practice.",
+      status: "Ready",
+      sceneCount: 4,
+      scenes: [
+        {
+          id: "scene_eep_1",
+          sceneNumber: 1,
+          sceneType: "listening",
+          title: "Part 1: Listening Conversation",
+          environment: "Cozy Cafe",
+          visualPrompt: "Alex and Maya meet inside a sunlit cafe and talk about a new job offer.",
+          narration: "Hey Maya, did you decide about that new job offer? Not yet. They gave me until tomorrow—basically, take it or leave it! I'm still on the fence. You should sleep on it tonight before deciding.",
+          dialogue: [
+            { speaker: "Alex", side: "left", text: "Hey Maya! Did you decide about that new job offer?" },
+            { speaker: "Maya", side: "right", text: "Not yet. They said take it or leave it by tomorrow!" },
+            { speaker: "Alex", side: "left", text: "Sounds tough. Are you still on the fence about it?" },
+            { speaker: "Maya", side: "right", text: "Yes, I think I'll sleep on it tonight before I decide." }
+          ],
+          durationSeconds: 18,
+          characterAction: "Alex walks in from left, Maya walks in from right; both converse with natural gestures.",
+          cameraAngle: "Wide Two-Shot"
+        },
+        {
+          id: "scene_eep_2",
+          sceneNumber: 2,
+          sceneType: "vocabulary",
+          title: "Part 2: Vocabulary Breakdown",
+          environment: "Modern Classroom",
+          visualPrompt: "Teacher walks beside the interactive vocabulary board to explain key idioms.",
+          narration: "Let's break down three useful expressions from the conversation: take it or leave it, on the fence, and sleep on it.",
+          vocabCards: [
+            {
+              word: "Take it or leave it",
+              definition: "Accept an offer exactly as it is, or reject it completely.",
+              example: "The price is final—you can take it or leave it."
+            },
+            {
+              word: "On the fence",
+              definition: "Unable to decide between two choices or options.",
+              example: "I'm still on the fence about moving to a new city."
+            },
+            {
+              word: "Sleep on it",
+              definition: "Wait until the next day before making an important decision.",
+              example: "Don't rush! Sleep on it and tell me tomorrow."
+            }
+          ],
+          durationSeconds: 21,
+          characterAction: "Teacher walks toward the board on the left and points to each vocabulary card.",
+          cameraAngle: "Medium Shot"
+        },
+        {
+          id: "scene_eep_3",
+          sceneNumber: 3,
+          sceneType: "speaking",
+          title: "Part 3: Listen & Answer Speaking Practice",
+          environment: "Modern Classroom",
+          visualPrompt: "Teacher steps forward and invites you to answer out loud before the timer ends.",
+          narration: "Now it's your turn to speak! When you need extra time before making a big decision, what idiom can you say?",
+          pausePrompt: "Say out loud: 'I need to _______ before I decide.'",
+          durationSeconds: 14,
+          characterAction: "Teacher steps forward to center-left and listens attentively during the countdown.",
+          cameraAngle: "Medium Close-Up"
+        },
+        {
+          id: "scene_eep_4",
+          sceneNumber: 4,
+          sceneType: "shadowing",
+          title: "Part 4: Shadowing & Pronunciation",
+          environment: "Modern Classroom",
+          visualPrompt: "Repeat each highlighted phrase right after the teacher to match natural rhythm.",
+          narration: "Listen closely and repeat out loud right after me: I am still on the fence, so I will sleep on it tonight.",
+          shadowLine: "I'm still on the fence, so I'll sleep on it tonight.",
+          durationSeconds: 14,
+          characterAction: "Teacher beats natural rhythm and nods while guiding pronunciation.",
+          cameraAngle: "Close-Up"
+        }
+      ]
+    },
+    {
       id: "demo_project_sv",
       userId: "studio_demo",
       title: "SCHOOL VIOLENCE: Stop & Protect",
@@ -240,7 +329,9 @@
       elapsedSceneSeconds: 0,
       intervalId: null,
       aspectRatio: "16:9",
-      isExporting: false
+      isExporting: false,
+      voiceEnabled: true,
+      lastSpokenKey: ""
     },
     quiz: {
       items: [],
@@ -253,6 +344,11 @@
       if (stored) {
         try {
           this.projects = JSON.parse(stored);
+          // Ensure featured English Easy Practice demo is available if not already present
+          if (!this.projects.some(p => p.id === "demo_project_eep")) {
+            this.projects.unshift(JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS[0])));
+            this.save();
+          }
         } catch (e) {
           console.warn("Failed to parse stored projects, falling back to seed", e);
           this.projects = JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS));
@@ -412,6 +508,7 @@
         "worksheet-generator": "Printable Worksheet",
         "quiz-generator": "Interactive Quiz",
         "video-studio": "Video Studio & Player",
+        "worksheet-analyzer": "AI Worksheet Analyzer",
         "projects": "My Projects"
       };
       const titleEl = document.getElementById("currentViewTitle");
@@ -581,13 +678,18 @@
         const generatedScenes = (generatedData.scenes || []).map((s, idx) => ({
           id: "scene_" + Date.now() + "_" + (idx + 1),
           sceneNumber: s.sceneNumber || (idx + 1),
+          sceneType: s.sceneType || (["listening", "vocabulary", "speaking", "shadowing"][idx % 4]),
           title: s.title || `Scene ${idx + 1}`,
-          visualPrompt: s.visualPrompt || "Virtual classroom staging with floating neon text",
+          visualPrompt: s.visualPrompt || "Virtual classroom staging with floating vocabulary cards",
           narration: s.narration || "Welcome to today's English lesson.",
-          durationSeconds: s.durationSeconds || (idx === 1 ? 24 : 18),
+          dialogue: Array.isArray(s.dialogue) ? s.dialogue : null,
+          vocabCards: Array.isArray(s.vocabCards) ? s.vocabCards : null,
+          pausePrompt: s.pausePrompt || null,
+          shadowLine: s.shadowLine || null,
+          durationSeconds: s.durationSeconds || (idx === 1 ? 20 : 16),
           characterAction: s.characterAction || "Engaging eye contact and gestures",
           cameraAngle: s.cameraAngle || "Medium Shot",
-          environment: "Futuristic Studio"
+          environment: s.environment || (idx === 0 ? "Cozy Cafe" : "Modern Classroom")
         }));
 
         const newProject = {
@@ -610,7 +712,7 @@
         StudioState.setActiveProject(newProject.id);
         StudioState.save();
 
-        showToast("Gemini AI successfully synthesized 3 pedagogical scenes!", "success");
+        showToast(`Gemini AI successfully synthesized ${generatedScenes.length} animated scenes!`, "success");
 
         document.getElementById("lessonGeneratorForm").reset();
         document.getElementById("durationVal").textContent = "3 min";
@@ -996,7 +1098,7 @@
   };
 
   /* ==========================================================================
-     8.5 DYNAMIC VIDEO STAGE CANVAS ENGINE (60 FPS Graphics & Avatar Animation)
+     8.5 DYNAMIC VIDEO STAGE CANVAS ENGINE (GSAP Walking Characters & 4-Part ESL)
      ========================================================================== */
   const VideoCanvasEngine = {
     canvas: null,
@@ -1004,6 +1106,25 @@
     animId: null,
     particles: [],
     starfield: [],
+    lastSceneKey: null,
+    lastTeacherX: 0.28,
+    lastPartnerX: 1.2,
+    stage: {
+      camZoom: 1.0,
+      camPanX: 0,
+      camPanY: 0,
+      teacherX: 0.28,
+      teacherTargetX: 0.28,
+      teacherScale: 1.0,
+      teacherFacing: 1,
+      partnerX: 1.22,
+      partnerTargetX: 1.22,
+      partnerScale: 0.97,
+      partnerAlpha: 0,
+      boardAlpha: 1,
+      cardReveal: 1,
+      bannerAlpha: 0
+    },
 
     init() {
       this.canvas = document.getElementById("videoStageCanvas");
@@ -1011,20 +1132,20 @@
       this.ctx = this.canvas.getContext("2d");
 
       this.particles = [];
-      for (let i = 0; i < 35; i++) {
+      for (let i = 0; i < 32; i++) {
         this.particles.push({
           x: Math.random() * 960,
           y: Math.random() * 540,
-          r: Math.random() * 3 + 1,
-          speedX: (Math.random() - 0.5) * 0.8,
-          speedY: -Math.random() * 0.8 - 0.2,
-          alpha: Math.random() * 0.7 + 0.3,
-          color: ['#a855f7', '#38bdf8', '#34d399', '#f43f5e'][Math.floor(Math.random() * 4)]
+          r: Math.random() * 2.5 + 1,
+          speedX: (Math.random() - 0.5) * 0.6,
+          speedY: -Math.random() * 0.6 - 0.15,
+          alpha: Math.random() * 0.5 + 0.25,
+          color: ['#a855f7', '#38bdf8', '#34d399', '#fbbf24'][Math.floor(Math.random() * 4)]
         });
       }
 
       this.starfield = [];
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < 85; i++) {
         this.starfield.push({
           x: (Math.random() - 0.5) * 960,
           y: (Math.random() - 0.5) * 540,
@@ -1036,6 +1157,130 @@
       this.startLoop();
     },
 
+    setAspectSize(aspectRatio) {
+      if (!this.canvas) return;
+      if (aspectRatio === "9:16") {
+        this.canvas.width = 540;
+        this.canvas.height = 960;
+      } else {
+        this.canvas.width = 960;
+        this.canvas.height = 540;
+      }
+      this.drawFrame();
+    },
+
+    getSceneType(scene, idx) {
+      if (scene && scene.sceneType) return scene.sceneType;
+      const t = ((scene && scene.title) || "").toLowerCase();
+      if (t.includes("vocab") || t.includes("grammar") || t.includes("breakdown")) return "vocabulary";
+      if (t.includes("speak") || t.includes("answer") || t.includes("challenge") || t.includes("choice")) return "speaking";
+      if (t.includes("shadow") || t.includes("repeat") || t.includes("outro")) return "shadowing";
+      if (scene && Array.isArray(scene.dialogue) && scene.dialogue.length > 0) return "listening";
+      return idx === 0 ? "listening" : (idx === 1 ? "vocabulary" : (idx === 2 ? "speaking" : "shadowing"));
+    },
+
+    onSceneChanged(scene, idx, immediate = false) {
+      if (!scene) return;
+      const key = `${scene.id || idx}_${idx}`;
+      if (this.lastSceneKey === key && !immediate) return;
+      this.lastSceneKey = key;
+
+      const sType = this.getSceneType(scene, idx);
+      const angle = scene.cameraAngle || 'Medium Shot';
+      const isPortrait = this.canvas && this.canvas.height > this.canvas.width;
+
+      let zoom = 1.0;
+      let panX = 0;
+      let panY = 0;
+      if (angle === 'Close-Up') { zoom = 1.24; panY = -18; }
+      else if (angle === 'Medium Close-Up') { zoom = 1.14; panY = -10; }
+      else if (angle === 'Wide Two-Shot') { zoom = 0.96; panX = 0; }
+      else if (angle === 'Over-Shoulder') { zoom = 1.12; panX = 18; }
+
+      let teacherTargetX = isPortrait ? 0.34 : 0.25;
+      let teacherScale = 1.0;
+      let partnerTargetX = 1.22;
+      let partnerAlpha = 0;
+      let boardAlpha = 1;
+
+      if (sType === "listening") {
+        teacherTargetX = isPortrait ? 0.30 : 0.27;
+        partnerTargetX = isPortrait ? 0.72 : 0.73;
+        partnerAlpha = 1;
+        boardAlpha = 0;
+        // Start partner just offstage on first listening cue so she visibly walks in
+        if (this.stage.partnerAlpha < 0.05) {
+          this.stage.partnerX = 1.16;
+        }
+      } else if (sType === "vocabulary") {
+        teacherTargetX = isPortrait ? 0.28 : 0.22;
+        teacherScale = 0.98;
+        partnerTargetX = 1.22;
+        partnerAlpha = 0;
+        boardAlpha = 1;
+      } else if (sType === "speaking") {
+        teacherTargetX = isPortrait ? 0.36 : 0.32;
+        teacherScale = 1.08;
+        partnerTargetX = 1.22;
+        partnerAlpha = 0;
+        boardAlpha = 1;
+      } else if (sType === "shadowing") {
+        teacherTargetX = isPortrait ? 0.34 : 0.26;
+        teacherScale = 1.05;
+        partnerTargetX = 1.22;
+        partnerAlpha = 0;
+        boardAlpha = 1;
+      }
+
+      this.stage.teacherTargetX = teacherTargetX;
+      this.stage.partnerTargetX = partnerTargetX;
+
+      if (immediate || typeof gsap === 'undefined') {
+        this.stage.camZoom = zoom;
+        this.stage.camPanX = panX;
+        this.stage.camPanY = panY;
+        this.stage.teacherX = teacherTargetX;
+        this.stage.teacherScale = teacherScale;
+        this.stage.partnerX = partnerTargetX;
+        this.stage.partnerAlpha = partnerAlpha;
+        this.stage.boardAlpha = boardAlpha;
+        this.stage.cardReveal = 1;
+        this.stage.bannerAlpha = 1;
+        return;
+      }
+
+      gsap.killTweensOf(this.stage);
+      this.stage.cardReveal = 0;
+      this.stage.bannerAlpha = 1;
+
+      gsap.to(this.stage, {
+        duration: 1.15,
+        ease: "power2.inOut",
+        camZoom: zoom,
+        camPanX: panX,
+        camPanY: panY,
+        teacherX: teacherTargetX,
+        teacherScale: teacherScale,
+        partnerX: partnerTargetX,
+        partnerAlpha: partnerAlpha,
+        boardAlpha: boardAlpha
+      });
+
+      gsap.to(this.stage, {
+        duration: 0.75,
+        delay: 0.2,
+        ease: "back.out(1.2)",
+        cardReveal: 1
+      });
+
+      gsap.to(this.stage, {
+        duration: 0.6,
+        delay: 2.2,
+        ease: "power2.out",
+        bannerAlpha: 0
+      });
+    },
+
     startLoop() {
       if (this.animId) cancelAnimationFrame(this.animId);
       const render = () => {
@@ -1043,6 +1288,20 @@
         this.animId = requestAnimationFrame(render);
       };
       this.animId = requestAnimationFrame(render);
+    },
+
+    getActiveDialogueTurn(scene, elapsed, duration) {
+      if (!scene || !Array.isArray(scene.dialogue) || scene.dialogue.length === 0) return null;
+      const lines = scene.dialogue;
+      const dur = Math.max(4, duration || 18);
+      const perLine = dur / lines.length;
+      const idx = Math.min(lines.length - 1, Math.max(0, Math.floor(elapsed / perLine)));
+      const lineElapsed = elapsed - idx * perLine;
+      return {
+        index: idx,
+        line: lines[idx],
+        progress: Math.min(1, Math.max(0, lineElapsed / perLine))
+      };
     },
 
     drawFrame() {
@@ -1054,40 +1313,177 @@
 
       const project = StudioState.getActiveProject();
       const scenes = project ? (project.scenes || []) : [];
-      const currentScene = scenes[StudioState.video.sceneIndex] || null;
-      const env = (currentScene && currentScene.environment) ? currentScene.environment : 'Default Studio';
+      const sceneIdx = StudioState.video.sceneIndex || 0;
+      const currentScene = scenes[sceneIdx] || null;
+      const sType = this.getSceneType(currentScene, sceneIdx);
+      const env = (currentScene && currentScene.environment) ? currentScene.environment : 'Modern Classroom';
       const isPlaying = StudioState.video.isPlaying;
+      const elapsed = StudioState.video.elapsedSceneSeconds || 0;
+      const duration = currentScene ? (currentScene.durationSeconds || 18) : 18;
 
+      if (currentScene && !this.lastSceneKey) {
+        this.onSceneChanged(currentScene, sceneIdx, true);
+      }
+
+      // 1. Background Environment
       this.drawEnvironment(ctx, w, h, env, time, currentScene);
 
+      // 2. Camera Rig Transform (animated smoothly via GSAP)
       ctx.save();
-      let zoom = 1.0;
-      let panX = 0;
-      let panY = 0;
+      const floatY = Math.sin(time * 1.4) * 2;
+      const floatX = Math.cos(time * 1.0) * 1.5;
 
-      const angle = currentScene ? (currentScene.cameraAngle || 'Medium Shot') : 'Medium Shot';
-      if (angle === 'Close-Up') { zoom = 1.35; panY = -30; }
-      else if (angle === 'Medium Close-Up') { zoom = 1.2; panY = -15; }
-      else if (angle === 'Wide Two-Shot') { zoom = 0.9; panX = -40; }
-      else if (angle === 'Over-Shoulder') { zoom = 1.15; panX = 30; }
-
-      const floatY = Math.sin(time * 1.5) * 3;
-      const floatX = Math.cos(time * 1.1) * 2;
-
-      ctx.translate(w / 2 + panX + floatX, h / 2 + panY + floatY);
-      ctx.scale(zoom, zoom);
+      ctx.translate(w / 2 + this.stage.camPanX + floatX, h / 2 + this.stage.camPanY + floatY);
+      ctx.scale(this.stage.camZoom, this.stage.camZoom);
       ctx.translate(-w / 2, -h / 2);
 
       this.drawParticles(ctx, w, h, time);
-      this.drawAvatar(ctx, w, h, time, isPlaying, currentScene);
-      this.drawHologramBoard(ctx, w, h, time, currentScene, project);
+
+      // Determine walking state from delta movement
+      const tDelta = Math.abs(this.stage.teacherX - this.lastTeacherX);
+      const pDelta = Math.abs(this.stage.partnerX - this.lastPartnerX);
+      const teacherWalking = tDelta > 0.0007;
+      const partnerWalking = pDelta > 0.0007;
+      const teacherDir = (this.stage.teacherX >= this.lastTeacherX) ? 1 : -1;
+      const partnerDir = (this.stage.partnerX >= this.lastPartnerX) ? 1 : -1;
+      this.lastTeacherX = this.stage.teacherX;
+      this.lastPartnerX = this.stage.partnerX;
+
+      // Determine who is currently speaking
+      const turn = sType === "listening" ? this.getActiveDialogueTurn(currentScene, elapsed, duration) : null;
+      let activeSpeaker = "teacher";
+      if (turn && turn.line) {
+        activeSpeaker = turn.line.side === "right" ? "partner" : "teacher";
+      } else if (sType === "speaking" && elapsed > duration * 0.45) {
+        activeSpeaker = "none"; // Teacher pauses to listen to student!
+      }
+
+      const teacherSpeaking = isPlaying && activeSpeaker === "teacher";
+      const partnerSpeaking = isPlaying && activeSpeaker === "partner";
+
+      // 3. Draw Partner Character (in Listening scenes or walking off-stage)
+      if (this.stage.partnerAlpha > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = this.stage.partnerAlpha;
+        this.drawCharacter(ctx, {
+          x: w * this.stage.partnerX,
+          y: h * 0.84,
+          scale: this.stage.partnerScale * (w < 600 ? 0.78 : 1.0),
+          facing: partnerWalking ? partnerDir : -1,
+          isWalking: partnerWalking,
+          isSpeaking: partnerSpeaking,
+          time,
+          variant: "partner"
+        });
+        ctx.restore();
+      }
+
+      // 4. Draw Primary Teacher Character (Alex)
+      this.drawCharacter(ctx, {
+        x: w * this.stage.teacherX,
+        y: h * 0.84,
+        scale: this.stage.teacherScale * (w < 600 ? 0.78 : 1.0),
+        facing: teacherWalking ? teacherDir : 1,
+        isWalking: teacherWalking,
+        isSpeaking: teacherSpeaking,
+        isPointing: (sType === "vocabulary" || sType === "shadowing"),
+        time,
+        variant: "teacher"
+      });
+
+      // 5. Speech Bubble over active character in Listening mode
+      if (sType === "listening" && turn && turn.line) {
+        const bubbleX = activeSpeaker === "partner" ? w * this.stage.partnerX : w * this.stage.teacherX;
+        const bubbleY = h * 0.36;
+        this.drawSpeechBubble(ctx, bubbleX, bubbleY, turn.line.speaker, turn.line.text, activeSpeaker === "partner" ? "#34d399" : "#38bdf8", w);
+      }
+
+      // 6. Instructional Board / Interactive Cards for Vocabulary, Speaking, Shadowing
+      if (this.stage.boardAlpha > 0.05 && sType !== "listening") {
+        ctx.save();
+        ctx.globalAlpha = this.stage.boardAlpha;
+        if (sType === "vocabulary") {
+          this.drawVocabularyBoard(ctx, w, h, time, currentScene, project, elapsed, duration);
+        } else if (sType === "speaking") {
+          this.drawSpeakingPauseBoard(ctx, w, h, time, currentScene, elapsed, duration, isPlaying);
+        } else if (sType === "shadowing") {
+          this.drawShadowingBoard(ctx, w, h, time, currentScene, elapsed, duration, isPlaying);
+        }
+        ctx.restore();
+      }
 
       ctx.restore();
+
+      // 7. HUD Part Banner & Burned-In Karaoke Subtitles (always crisp & exported into WebM!)
+      this.drawPartBanner(ctx, w, sType, currentScene);
+      this.drawBurnedInSubtitles(ctx, w, h, currentScene, sType, turn, elapsed, duration);
     },
 
     drawEnvironment(ctx, w, h, env, time, currentScene) {
-      if (env.includes('Bridge') || env.includes('Cosmos') || env.includes('Sci-Fi')) {
-        const grad = ctx.createRadialGradient(w/2, h/2, 50, w/2, h/2, w);
+      if (env.includes('Cafe') || env.includes('Café')) {
+        // Cozy Sunlit Cafe
+        const wallGrad = ctx.createLinearGradient(0, 0, 0, h);
+        wallGrad.addColorStop(0, '#2b1d16');
+        wallGrad.addColorStop(0.65, '#432818');
+        wallGrad.addColorStop(1, '#1c120d');
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Warm sunlit window
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(w * 0.34, h * 0.1, w * 0.32, h * 0.34);
+        const sunBeam = ctx.createLinearGradient(w * 0.34, h * 0.1, w * 0.66, h * 0.7);
+        sunBeam.addColorStop(0, 'rgba(254, 240, 138, 0.32)');
+        sunBeam.addColorStop(1, 'rgba(254, 240, 138, 0.0)');
+        ctx.fillStyle = sunBeam;
+        ctx.fillRect(w * 0.25, h * 0.1, w * 0.5, h * 0.65);
+
+        // Window frame
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(w * 0.34, h * 0.1, w * 0.32, h * 0.34);
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5, h * 0.1);
+        ctx.lineTo(w * 0.5, h * 0.44);
+        ctx.stroke();
+
+        // Hanging warm pendant lights
+        [0.2, 0.8].forEach(px => {
+          ctx.strokeStyle = '#a8a29e';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(w * px, 0);
+          ctx.lineTo(w * px, h * 0.14);
+          ctx.stroke();
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(w * px, h * 0.16, 16, Math.PI, 0);
+          ctx.fill();
+
+          const glow = ctx.createRadialGradient(w * px, h * 0.18, 4, w * px, h * 0.22, 65);
+          glow.addColorStop(0, 'rgba(251, 191, 36, 0.35)');
+          glow.addColorStop(1, 'transparent');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(w * px, h * 0.22, 65, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Floor & cafe table
+        ctx.fillStyle = '#291a13';
+        ctx.fillRect(0, h * 0.78, w, h * 0.22);
+
+        ctx.fillStyle = '#92400e';
+        ctx.fillRect(w * 0.43, h * 0.66, w * 0.14, 12);
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(w * 0.49, h * 0.66 + 12, 12, h * 0.16);
+        // Coffee cups on table
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(w * 0.45, h * 0.66 - 14, 14, 14);
+        ctx.fillRect(w * 0.52, h * 0.66 - 14, 14, 14);
+      } else if (env.includes('Bridge') || env.includes('Cosmos') || env.includes('Sci-Fi')) {
+        const grad = ctx.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w);
         grad.addColorStop(0, '#1e1b4b');
         grad.addColorStop(0.6, '#0f172a');
         grad.addColorStop(1, '#020617');
@@ -1096,14 +1492,13 @@
 
         ctx.fillStyle = '#ffffff';
         this.starfield.forEach(s => {
-          s.z -= (StudioState.video.isPlaying ? 4 : 0.8);
+          s.z -= (StudioState.video.isPlaying ? 3.5 : 0.7);
           if (s.z <= 0) s.z = 960;
           const k = 400 / s.z;
           const px = s.x * k + w / 2;
           const py = s.y * k + h / 2;
           if (px >= 0 && px <= w && py >= 0 && py <= h) {
-            const alpha = (1 - s.z / 960);
-            ctx.globalAlpha = alpha;
+            ctx.globalAlpha = (1 - s.z / 960);
             ctx.beginPath();
             ctx.arc(px, py, s.size * (1 - s.z / 960) * 1.5, 0, Math.PI * 2);
             ctx.fill();
@@ -1111,75 +1506,89 @@
         });
         ctx.globalAlpha = 1.0;
 
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(w/2, h + 100, 520, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.arc(w / 2, h + 100, 520, Math.PI * 1.15, Math.PI * 1.85);
         ctx.stroke();
       } else if (env.includes('Courtyard') || env.includes('Park')) {
         const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-        skyGrad.addColorStop(0, '#0f172a');
-        skyGrad.addColorStop(0.4, '#4c1d95');
-        skyGrad.addColorStop(0.7, '#e11d48');
-        skyGrad.addColorStop(1, '#f59e0b');
+        skyGrad.addColorStop(0, '#0284c7');
+        skyGrad.addColorStop(0.55, '#7dd3fc');
+        skyGrad.addColorStop(1, '#bbf7d0');
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, w, h);
 
-        ctx.fillStyle = 'rgba(254, 240, 138, 0.4)';
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
         ctx.beginPath();
-        ctx.arc(w * 0.8, h * 0.35, 70, 0, Math.PI * 2);
+        ctx.arc(w * 0.82, h * 0.2, 48, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = '#059669';
+        ctx.fillStyle = '#16a34a';
         ctx.beginPath();
         ctx.moveTo(0, h * 0.72);
-        ctx.quadraticCurveTo(w * 0.4, h * 0.65, w, h * 0.75);
+        ctx.quadraticCurveTo(w * 0.45, h * 0.65, w, h * 0.74);
         ctx.lineTo(w, h);
         ctx.lineTo(0, h);
         ctx.fill();
-      } else if (env.includes('Classroom') || env.includes('Hallway')) {
+
+        ctx.fillStyle = '#15803d';
+        ctx.fillRect(0, h * 0.78, w, h * 0.22);
+      } else if (env.includes('Boardroom') || env.includes('Office')) {
+        const bg = ctx.createLinearGradient(0, 0, 0, h);
+        bg.addColorStop(0, '#0f172a');
+        bg.addColorStop(0.65, '#1e293b');
+        bg.addColorStop(1, '#090d16');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+
+        // City window skyline
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(w * 0.1, h * 0.08, w * 0.8, h * 0.45);
+        ctx.fillStyle = '#334155';
+        for (let b = 0; b < 12; b++) {
+          const bw = (w * 0.78) / 12;
+          const bh = 60 + ((b * 37) % 110);
+          ctx.fillRect(w * 0.11 + b * bw, h * 0.53 - bh, bw - 6, bh);
+        }
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, h * 0.78, w, h * 0.22);
+      } else {
+        // Modern Classroom / Hallway with Chalkboard
         const roomGrad = ctx.createLinearGradient(0, 0, 0, h);
-        roomGrad.addColorStop(0, '#0f172a');
-        roomGrad.addColorStop(0.5, '#1e293b');
+        roomGrad.addColorStop(0, '#1e293b');
+        roomGrad.addColorStop(0.65, '#334155');
         roomGrad.addColorStop(1, '#0f172a');
         ctx.fillStyle = roomGrad;
         ctx.fillRect(0, 0, w, h);
 
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
-        ctx.lineWidth = 1;
-        const horizonY = h * 0.55;
-        for (let x = -200; x <= w + 200; x += 80) {
-          ctx.beginPath();
-          ctx.moveTo(x, h);
-          ctx.lineTo(w / 2 + (x - w / 2) * 0.15, horizonY);
-          ctx.stroke();
-        }
-        for (let y = horizonY; y <= h; y += 30) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
-          ctx.stroke();
-        }
+        // Floor
+        ctx.fillStyle = '#1e1b18';
+        ctx.fillRect(0, h * 0.78, w, h * 0.22);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.78);
+        ctx.lineTo(w, h * 0.78);
+        ctx.stroke();
 
-        ctx.fillStyle = '#1e293b';
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
-        ctx.fillRect(80, 50, w - 160, 220);
-        ctx.strokeRect(80, 50, w - 160, 220);
+        // Classroom Green Chalkboard with Wood Frame
+        const boardX = w * 0.12;
+        const boardY = h * 0.09;
+        const boardW = w * 0.76;
+        const boardH = h * 0.42;
+        ctx.fillStyle = '#14532d';
+        ctx.strokeStyle = '#92400e';
+        ctx.lineWidth = 8;
+        ctx.fillRect(boardX, boardY, boardW, boardH);
+        ctx.strokeRect(boardX, boardY, boardW, boardH);
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.font = '600 16px sans-serif';
-        ctx.fillText("ENGLISH LENSES ACADEMY", 110, 85);
+        ctx.font = '600 15px sans-serif';
+        ctx.fillText("ENGLISH LENSES • LIVE LESSON", boardX + 24, boardY + 34);
         ctx.font = '500 13px sans-serif';
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText("Target Pattern: " + (currentScene ? currentScene.title : "Pedagogical Grammar"), 110, 115);
-      } else {
-        const grad = ctx.createRadialGradient(w/2, h/2, 40, w/2, h/2, w*0.7);
-        grad.addColorStop(0, '#2e1065');
-        grad.addColorStop(0.6, '#0f172a');
-        grad.addColorStop(1, '#020617');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#fde047';
+        const boardTitle = currentScene ? currentScene.title : "Interactive Lesson";
+        ctx.fillText(boardTitle.substring(0, 44), boardX + 24, boardY + 60);
       }
     },
 
@@ -1191,7 +1600,7 @@
         if (p.x < 0) p.x = w;
         if (p.x > w) p.x = 0;
 
-        ctx.globalAlpha = p.alpha * (0.6 + 0.4 * Math.sin(time * 2 + p.x));
+        ctx.globalAlpha = p.alpha * (0.55 + 0.45 * Math.sin(time * 2 + p.x));
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -1200,208 +1609,517 @@
       ctx.globalAlpha = 1.0;
     },
 
-    drawAvatar(ctx, w, h, time, isPlaying, scene) {
-      const cx = w * 0.32;
-      const cy = h * 0.92;
-
+    drawCharacter(ctx, opts) {
+      const { x, y, scale = 1.0, facing = 1, isWalking = false, isSpeaking = false, isPointing = false, time = 0, variant = "teacher" } = opts;
       ctx.save();
-      const auraGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 110);
-      auraGrad.addColorStop(0, isPlaying ? 'rgba(168, 85, 247, 0.45)' : 'rgba(56, 189, 248, 0.3)');
-      auraGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = auraGrad;
+
+      // Shadow under feet
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
       ctx.beginPath();
-      ctx.ellipse(cx, cy, 110, 35, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + 4, 42 * scale, 10 * scale, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const breathY = Math.sin(time * 2) * 2;
-      ctx.translate(cx, cy + breathY);
+      const walkCycle = isWalking ? Math.sin(time * 12) : 0;
+      const walkBob = isWalking ? Math.abs(Math.sin(time * 12)) * 6 : Math.sin(time * 2.2) * 1.5;
 
-      ctx.fillStyle = '#1e1b4b';
-      ctx.strokeStyle = '#6366f1';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-60, 0);
-      ctx.quadraticCurveTo(-65, -120, -50, -170);
-      ctx.lineTo(50, -170);
-      ctx.quadraticCurveTo(65, -120, 60, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.translate(x, y - walkBob);
+      ctx.scale(scale * facing, scale);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(-20, -170);
-      ctx.lineTo(0, -110);
-      ctx.lineTo(20, -170);
-      ctx.closePath();
-      ctx.fill();
+      const isPartner = variant === "partner";
+      const suitColor = isPartner ? '#0f766e' : '#1e3a8a';
+      const suitStroke = isPartner ? '#2dd4bf' : '#60a5fa';
+      const tieColor = isPartner ? '#fbbf24' : '#ef4444';
+      const skinColor = isPartner ? '#f3c6a5' : '#fed7aa';
+      const hairColor = isPartner ? '#1e293b' : '#5b3a29';
 
-      ctx.fillStyle = '#ec4899';
-      ctx.beginPath();
-      ctx.moveTo(-6, -170);
-      ctx.lineTo(6, -170);
-      ctx.lineTo(8, -120);
-      ctx.lineTo(0, -100);
-      ctx.lineTo(-8, -120);
-      ctx.closePath();
-      ctx.fill();
+      // Legs & Walking Shoes
+      const legStride = isWalking ? walkCycle * 22 : 0;
+      const drawLeg = (offsetX, stride) => {
+        ctx.save();
+        ctx.translate(offsetX, -68);
+        ctx.rotate((stride * Math.PI) / 180);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-10, 0, 20, 62);
+        // Shoe
+        ctx.fillStyle = '#78350f';
+        ctx.beginPath();
+        ctx.ellipse(4, 64, 15, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawLeg(-14, -legStride);
+      drawLeg(14, legStride);
 
-      ctx.strokeStyle = '#1e1b4b';
-      ctx.lineWidth = 18;
+      // Back Arm (swings when walking)
+      ctx.save();
+      ctx.translate(-34, -150);
+      ctx.rotate(((isWalking ? legStride * 0.9 : -6) * Math.PI) / 180);
+      ctx.strokeStyle = suitColor;
+      ctx.lineWidth = 15;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(45, -150);
-      const armWave = isPlaying ? Math.sin(time * 5) * 12 : 0;
-      ctx.quadraticCurveTo(90, -170 + armWave, 120, -190 + armWave);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-10, 56);
+      ctx.stroke();
+      ctx.fillStyle = skinColor;
+      ctx.beginPath();
+      ctx.arc(-10, 60, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Torso / Suit Jacket
+      ctx.fillStyle = suitColor;
+      ctx.strokeStyle = suitStroke;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-36, -66);
+      ctx.quadraticCurveTo(-42, -125, -34, -162);
+      ctx.lineTo(34, -162);
+      ctx.quadraticCurveTo(42, -125, 36, -66);
+      ctx.closePath();
+      ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#38bdf8';
-      ctx.beginPath();
-      ctx.arc(125, -192 + armWave, 10, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#fed7aa';
-      ctx.fillRect(-15, -200, 30, 35);
-
-      ctx.beginPath();
-      ctx.ellipse(0, -235, 42, 50, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#334155';
-      ctx.beginPath();
-      ctx.ellipse(0, -265, 46, 28, 0, Math.PI, Math.PI * 2);
-      ctx.fill();
-
-      const blinkCycle = Math.sin(time * 1.2);
-      const isBlinking = blinkCycle > 0.94;
-
+      // Shirt & Tie
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.ellipse(-16, -240, 9, isBlinking ? 1 : 7, 0, 0, Math.PI * 2);
-      ctx.ellipse(16, -240, 9, isBlinking ? 1 : 7, 0, 0, Math.PI * 2);
+      ctx.moveTo(-14, -162);
+      ctx.lineTo(0, -112);
+      ctx.lineTo(14, -162);
+      ctx.closePath();
       ctx.fill();
 
-      if (!isBlinking) {
-        ctx.fillStyle = '#2563eb';
-        ctx.beginPath();
-        ctx.arc(-16, -240, 4.5, 0, Math.PI * 2);
-        ctx.arc(16, -240, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = tieColor;
+      ctx.beginPath();
+      ctx.moveTo(-4, -162);
+      ctx.lineTo(4, -162);
+      ctx.lineTo(6, -122);
+      ctx.lineTo(0, -106);
+      ctx.lineTo(-6, -122);
+      ctx.closePath();
+      ctx.fill();
+
+      // Front Gesturing / Pointing Arm
+      ctx.save();
+      ctx.translate(34, -150);
+      const gestureAngle = isWalking
+        ? -legStride * 0.9
+        : (isPointing ? -65 + Math.sin(time * 3) * 6 : (isSpeaking ? -42 + Math.sin(time * 6) * 14 : -15));
+      ctx.rotate((gestureAngle * Math.PI) / 180);
+      ctx.strokeStyle = suitColor;
+      ctx.lineWidth = 15;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(14, 54);
+      ctx.stroke();
+      ctx.fillStyle = skinColor;
+      ctx.beginPath();
+      ctx.arc(15, 58, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Neck & Head
+      ctx.fillStyle = skinColor;
+      ctx.fillRect(-11, -184, 22, 26);
+
+      ctx.beginPath();
+      ctx.ellipse(0, -214, 33, 40, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hair
+      ctx.fillStyle = hairColor;
+      ctx.beginPath();
+      if (isPartner) {
+        ctx.ellipse(-2, -230, 38, 28, 0, Math.PI * 0.85, Math.PI * 2.15);
         ctx.fill();
-        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-35, -222, 12, 34);
+      } else {
+        ctx.ellipse(0, -242, 36, 22, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // Neat beard for Alex
         ctx.beginPath();
-        ctx.arc(-18, -242, 1.5, 0, Math.PI * 2);
-        ctx.arc(14, -242, 1.5, 0, Math.PI * 2);
+        ctx.arc(0, -206, 30, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.fillStyle = '#5b3a29';
         ctx.fill();
       }
 
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 3;
+      // Eyes & Blink
+      const isBlinking = Math.sin(time * 1.4 + (isPartner ? 1.5 : 0)) > 0.95;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(-26, -252);
-      ctx.quadraticCurveTo(-16, -256, -6, -252);
-      ctx.moveTo(6, -252);
-      ctx.quadraticCurveTo(16, -256, 26, -252);
+      ctx.ellipse(-11, -218, 7, isBlinking ? 1 : 5.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(13, -218, 7, isBlinking ? 1 : 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!isBlinking) {
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(-10, -218, 3.5, 0, Math.PI * 2);
+        ctx.arc(14, -218, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Eyebrows
+      ctx.strokeStyle = hairColor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-18, -228);
+      ctx.quadraticCurveTo(-11, -231, -4, -228);
+      ctx.moveTo(6, -228);
+      ctx.quadraticCurveTo(13, -231, 20, -228);
       ctx.stroke();
 
-      ctx.fillStyle = '#be123c';
-      ctx.beginPath();
-      if (isPlaying) {
-        const speechH = Math.abs(Math.sin(time * 14)) * 12 + 2;
-        ctx.ellipse(0, -218, 11, speechH, 0, 0, Math.PI * 2);
+      // Mouth (lip-sync when speaking, warm smile when idle)
+      if (isSpeaking) {
+        const speechH = Math.abs(Math.sin(time * 14)) * 8 + 2.5;
+        ctx.fillStyle = '#be123c';
+        ctx.beginPath();
+        ctx.ellipse(2, -198, 9, speechH, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-8, -223, 16, 4);
+        ctx.fillRect(-4, -202, 12, 3);
       } else {
         ctx.strokeStyle = '#be123c';
-        ctx.lineWidth = 3;
-        ctx.arc(0, -224, 10, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(2, -202, 8, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
       }
 
       ctx.restore();
     },
 
-    drawHologramBoard(ctx, w, h, time, scene, project) {
-      const bx = w * 0.52;
-      const by = h * 0.18;
-      const bw = 400;
-      const bh = 260;
-
+    drawSpeechBubble(ctx, anchorX, anchorY, speaker, text, accentColor, canvasW) {
       ctx.save();
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-      ctx.strokeStyle = '#a855f7';
-      ctx.lineWidth = 2;
+      const maxW = Math.min(340, canvasW * 0.52);
+      ctx.font = '600 15px sans-serif';
+      const lines = this.wrapText(ctx, text, maxW - 32);
+      const boxH = 44 + lines.length * 21;
+      const boxX = Math.max(16, Math.min(canvasW - maxW - 16, anchorX - maxW / 2));
+      const boxY = Math.max(52, anchorY - boxH);
 
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx, by, bw, bh, 12);
+        ctx.roundRect(boxX, boxY, maxW, boxH, 14);
       } else {
-        ctx.rect(bx, by, bw, bh);
+        ctx.rect(boxX, boxY, maxW, boxH);
       }
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#38bdf8';
-      [ [bx + 12, by + 12], [bx + bw - 12, by + 12], [bx + 12, by + bh - 12], [bx + bw - 12, by + bh - 12] ].forEach(([x, y]) => {
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      // Tail triangle
+      const tipX = Math.max(boxX + 24, Math.min(boxX + maxW - 24, anchorX));
+      ctx.beginPath();
+      ctx.moveTo(tipX - 10, boxY + boxH - 1);
+      ctx.lineTo(tipX, boxY + boxH + 14);
+      ctx.lineTo(tipX + 10, boxY + boxH - 1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = accentColor;
+      ctx.font = '800 11px sans-serif';
+      ctx.fillText((speaker || 'SPEAKER').toUpperCase(), boxX + 16, boxY + 20);
 
       ctx.fillStyle = '#f8fafc';
-      ctx.font = '700 18px sans-serif';
-      const boardTitle = scene ? scene.title : (project ? project.title : 'English Lesson');
-      ctx.fillText(boardTitle.length > 30 ? boardTitle.substring(0, 28) + "..." : boardTitle, bx + 20, by + 36);
+      ctx.font = '600 15px sans-serif';
+      lines.forEach((ln, i) => {
+        ctx.fillText(ln, boxX + 16, boxY + 42 + i * 21);
+      });
+      ctx.restore();
+    },
 
-      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+    drawVocabularyBoard(ctx, w, h, time, scene, project, elapsed, duration) {
+      const isPortrait = h > w;
+      const bx = isPortrait ? w * 0.08 : w * 0.43;
+      const by = isPortrait ? h * 0.14 : h * 0.14;
+      const bw = isPortrait ? w * 0.84 : w * 0.51;
+      const bh = isPortrait ? 270 : 280;
+
+      const cards = (scene && Array.isArray(scene.vocabCards) && scene.vocabCards.length > 0)
+        ? scene.vocabCards
+        : (project && project.vocabulary
+            ? project.vocabulary.split(',').slice(0, 3).map(v => ({
+                word: v.trim(),
+                definition: "Key expression highlighted in today's lesson.",
+                example: scene ? scene.narration : "Use this phrase naturally in conversation."
+              }))
+            : [{ word: "Key Expression", definition: "Core target vocabulary.", example: "Practice in daily conversation." }]);
+
+      const perCard = Math.max(3, duration / cards.length);
+      const cardIdx = Math.min(cards.length - 1, Math.max(0, Math.floor(elapsed / perCard)));
+      const card = cards[cardIdx];
+
+      ctx.save();
+      ctx.translate(0, (1 - this.stage.cardReveal) * 20);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(bx + 20, by + 48);
-      ctx.lineTo(bx + bw - 20, by + 48);
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, bw, bh, 16);
+      else ctx.rect(bx, by, bw, bh);
+      ctx.fill();
       ctx.stroke();
 
+      // Header pill
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.fillRect(bx + 18, by + 18, 185, 26);
       ctx.fillStyle = '#38bdf8';
-      ctx.font = '600 13px sans-serif';
-      ctx.fillText("3D VISUAL PROMPT & STAGING", bx + 20, by + 72);
+      ctx.font = '800 12px sans-serif';
+      ctx.fillText(`VOCABULARY ${cardIdx + 1} OF ${cards.length}`, bx + 28, by + 35);
 
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = '400 13px sans-serif';
-      const promptText = scene ? scene.visualPrompt : 'Interactive 3D Stage Environment';
-      const words = promptText.split(' ');
-      let line = '';
-      let currY = by + 94;
-      for (let n = 0; n < words.length; n++) {
-        let testLine = line + words[n] + ' ';
-        if (ctx.measureText(testLine).width > bw - 40 && n > 0) {
-          ctx.fillText(line, bx + 20, currY);
-          line = words[n] + ' ';
-          currY += 20;
-          if (currY > by + bh - 60) break;
-        } else {
-          line = testLine;
-        }
-      }
-      ctx.fillText(line, bx + 20, currY);
+      // Word
+      ctx.fillStyle = '#fde047';
+      ctx.font = '800 26px sans-serif';
+      ctx.fillText((card.word || '').toUpperCase(), bx + 20, by + 80);
 
-      if (project && project.vocabulary) {
-        const vocabFirst = project.vocabulary.split(',')[0] || 'Target Pattern';
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(bx + 20, by + bh - 44, 210, 28, 14);
-        } else {
-          ctx.rect(bx + 20, by + bh - 44, 210, 28);
-        }
-        ctx.fill();
-        ctx.stroke();
+      // Definition
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '500 15px sans-serif';
+      const defLines = this.wrapText(ctx, card.definition || '', bw - 40);
+      defLines.slice(0, 3).forEach((ln, i) => {
+        ctx.fillText(ln, bx + 20, by + 114 + i * 22);
+      });
 
-        ctx.fillStyle = '#34d399';
-        ctx.font = '700 12px sans-serif';
-        ctx.fillText("VOCAB: " + vocabFirst.trim().toUpperCase(), bx + 32, by + bh - 26);
-      }
+      // Example box
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.14)';
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx + 18, by + bh - 92, bw - 36, 72, 10);
+      else ctx.rect(bx + 18, by + bh - 92, bw - 36, 72);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#34d399';
+      ctx.font = '800 11px sans-serif';
+      ctx.fillText("EXAMPLE SENTENCE", bx + 30, by + bh - 70);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'italic 14px sans-serif';
+      const exLines = this.wrapText(ctx, `"${card.example || ''}"`, bw - 60);
+      exLines.slice(0, 2).forEach((ln, i) => {
+        ctx.fillText(ln, bx + 30, by + bh - 48 + i * 19);
+      });
 
       ctx.restore();
+    },
+
+    drawSpeakingPauseBoard(ctx, w, h, time, scene, elapsed, duration, isPlaying) {
+      const isPortrait = h > w;
+      const bx = isPortrait ? w * 0.08 : w * 0.46;
+      const by = isPortrait ? h * 0.14 : h * 0.15;
+      const bw = isPortrait ? w * 0.84 : w * 0.47;
+      const bh = 270;
+
+      const pauseStart = duration * 0.45;
+      const inPauseWindow = elapsed >= pauseStart;
+      const remaining = Math.max(0, Math.ceil(duration - elapsed));
+      const pauseProgress = inPauseWindow ? Math.min(1, (elapsed - pauseStart) / Math.max(1, duration - pauseStart)) : 0;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.strokeStyle = inPauseWindow ? '#10b981' : '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, bw, bh, 16);
+      else ctx.rect(bx, by, bw, bh);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = inPauseWindow ? '#34d399' : '#fbbf24';
+      ctx.font = '800 13px sans-serif';
+      ctx.fillText(inPauseWindow ? "YOUR TURN! SPEAK OUT LOUD" : "LISTEN TO THE QUESTION", bx + 22, by + 34);
+
+      const promptText = (scene && (scene.pausePrompt || scene.narration)) || "Answer the question out loud!";
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 17px sans-serif';
+      const lines = this.wrapText(ctx, promptText, bw - 44);
+      lines.slice(0, 3).forEach((ln, i) => {
+        ctx.fillText(ln, bx + 22, by + 68 + i * 24);
+      });
+
+      // Countdown ring
+      const cx = bx + bw / 2;
+      const cy = by + bh - 68;
+      const radius = 38;
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = inPauseWindow ? '#10b981' : '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - pauseProgress));
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(inPauseWindow ? `${remaining}s` : (isPlaying ? "..." : "GO"), cx, cy + 8);
+      ctx.textAlign = 'left';
+
+      ctx.restore();
+    },
+
+    drawShadowingBoard(ctx, w, h, time, scene, elapsed, duration, isPlaying) {
+      const isPortrait = h > w;
+      const bx = isPortrait ? w * 0.08 : w * 0.43;
+      const by = isPortrait ? h * 0.14 : h * 0.15;
+      const bw = isPortrait ? w * 0.84 : w * 0.51;
+      const bh = 260;
+
+      const sentence = (scene && (scene.shadowLine || scene.narration)) || "Practice speaking clearly with natural rhythm.";
+      const words = sentence.split(/\s+/).filter(Boolean);
+      const progress = isPlaying ? Math.min(1, elapsed / Math.max(4, duration * 0.65)) : 0;
+      const activeWordIdx = Math.floor(progress * words.length);
+      const repeatPhase = elapsed > duration * 0.65;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, bw, bh, 16);
+      else ctx.rect(bx, by, bw, bh);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#c4b5fd';
+      ctx.font = '800 13px sans-serif';
+      ctx.fillText(repeatPhase ? "NOW REPEAT AFTER ME!" : "SHADOWING PRACTICE • LISTEN & REPEAT", bx + 22, by + 36);
+
+      // Word-by-word highlight
+      ctx.font = '700 20px sans-serif';
+      let curX = bx + 22;
+      let curY = by + 84;
+      words.forEach((word, i) => {
+        const wWidth = ctx.measureText(word + " ").width;
+        if (curX + wWidth > bx + bw - 22) {
+          curX = bx + 22;
+          curY += 32;
+        }
+        ctx.fillStyle = i <= activeWordIdx ? '#fde047' : '#94a3b8';
+        ctx.fillText(word + " ", curX, curY);
+        curX += wWidth;
+      });
+
+      // Rhythm bar
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+      ctx.fillRect(bx + 22, by + bh - 38, bw - 44, 10);
+      ctx.fillStyle = repeatPhase ? '#34d399' : '#a855f7';
+      ctx.fillRect(bx + 22, by + bh - 38, (bw - 44) * Math.min(1, elapsed / Math.max(1, duration)), 10);
+
+      ctx.restore();
+    },
+
+    drawPartBanner(ctx, w, sType, scene) {
+      if (this.stage.bannerAlpha <= 0.02) return;
+      const labels = {
+        listening: "PART 1 • LISTENING PRACTICE",
+        vocabulary: "PART 2 • VOCABULARY BREAKDOWN",
+        speaking: "PART 3 • LISTEN & ANSWER",
+        shadowing: "PART 4 • SHADOWING PRACTICE"
+      };
+      const text = labels[sType] || (scene ? scene.title.toUpperCase() : "LESSON");
+      ctx.save();
+      ctx.globalAlpha = this.stage.bannerAlpha;
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.92)';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(w / 2 - 165, 16, 330, 32, 16);
+      else ctx.rect(w / 2 - 165, 16, 330, 32);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, w / 2, 36);
+      ctx.restore();
+    },
+
+    drawBurnedInSubtitles(ctx, w, h, scene, sType, turn, elapsed, duration) {
+      if (!scene) return;
+      let speaker = "TEACHER";
+      let speakerColor = "#38bdf8";
+      let text = scene.narration || "";
+      let progress = Math.min(1, elapsed / Math.max(1, duration));
+
+      if (sType === "listening" && turn && turn.line) {
+        speaker = turn.line.speaker || "Speaker";
+        speakerColor = turn.line.side === "right" ? "#34d399" : "#38bdf8";
+        text = turn.line.text || "";
+        progress = turn.progress;
+      } else if (sType === "shadowing" && scene.shadowLine) {
+        text = scene.shadowLine;
+      }
+
+      if (!text) return;
+
+      ctx.save();
+      const boxW = w - 48;
+      const boxX = 24;
+      ctx.font = '700 17px sans-serif';
+      const lines = this.wrapText(ctx, `${speaker}: ${text}`, boxW - 36);
+      const shownLines = lines.slice(0, 2);
+      const boxH = 26 + shownLines.length * 24;
+      const boxY = h - boxH - 14;
+
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.88)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+      else ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw words with karaoke highlight
+      const allWords = text.split(/\s+/).filter(Boolean);
+      const highlightedCount = StudioState.video.isPlaying ? Math.ceil(progress * allWords.length) : allWords.length;
+
+      let curX = boxX + 18;
+      let curY = boxY + 28;
+      ctx.font = '800 15px sans-serif';
+      ctx.fillStyle = speakerColor;
+      const tag = `${speaker.toUpperCase()}: `;
+      ctx.fillText(tag, curX, curY);
+      curX += ctx.measureText(tag).width;
+
+      ctx.font = '700 17px sans-serif';
+      allWords.forEach((word, i) => {
+        const ww = ctx.measureText(word + " ").width;
+        if (curX + ww > boxX + boxW - 18) {
+          curX = boxX + 18;
+          curY += 24;
+        }
+        if (curY <= boxY + boxH - 8) {
+          ctx.fillStyle = i < highlightedCount ? '#fde047' : '#e2e8f0';
+          ctx.fillText(word + " ", curX, curY);
+        }
+        curX += ww;
+      });
+      ctx.restore();
+    },
+
+    wrapText(ctx, text, maxWidth) {
+      const words = String(text || '').split(/\s+/);
+      const lines = [];
+      let current = '';
+      words.forEach(w => {
+        const test = current ? `${current} ${w}` : w;
+        if (ctx.measureText(test).width > maxWidth && current) {
+          lines.push(current);
+          current = w;
+        } else {
+          current = test;
+        }
+      });
+      if (current) lines.push(current);
+      return lines;
     }
   };
 
@@ -1433,6 +2151,20 @@
         });
       }
 
+      const voiceBtn = document.getElementById("voiceToggleBtn");
+      if (voiceBtn) {
+        voiceBtn.addEventListener("click", () => {
+          StudioState.video.voiceEnabled = !StudioState.video.voiceEnabled;
+          voiceBtn.classList.toggle("active", StudioState.video.voiceEnabled);
+          voiceBtn.innerHTML = StudioState.video.voiceEnabled
+            ? `<i class="fa-solid fa-volume-high"></i> Voice ON`
+            : `<i class="fa-solid fa-volume-xmark"></i> Voice OFF`;
+          if (!StudioState.video.voiceEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try { window.speechSynthesis.cancel(); } catch (e) {}
+          }
+        });
+      }
+
       document.querySelectorAll(".aspect-ratio-controls button").forEach(btn => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".aspect-ratio-controls button").forEach(b => b.classList.remove("active"));
@@ -1443,6 +2175,7 @@
           if (viewport) {
             viewport.className = `video-viewport-wrapper aspect-${aspect.replace(":", "-")}`;
           }
+          VideoCanvasEngine.setAspectSize(aspect);
         });
       });
 
@@ -1482,13 +2215,28 @@
       if (!VideoCanvasEngine.canvas) {
         VideoCanvasEngine.init();
       }
-      VideoCanvasEngine.drawFrame();
 
       const scenes = project.scenes || [];
       const currentIdx = Math.min(StudioState.video.sceneIndex, Math.max(0, scenes.length - 1));
       StudioState.video.sceneIndex = currentIdx;
 
       const currentScene = scenes[currentIdx];
+      if (currentScene) {
+        VideoCanvasEngine.onSceneChanged(currentScene, currentIdx, false);
+      }
+      VideoCanvasEngine.drawFrame();
+
+      const partLabels = {
+        listening: "PART 1 • LISTENING",
+        vocabulary: "PART 2 • VOCABULARY",
+        speaking: "PART 3 • SPEAKING",
+        shadowing: "PART 4 • SHADOWING"
+      };
+      const sType = VideoCanvasEngine.getSceneType(currentScene, currentIdx);
+      const partBadge = document.getElementById("videoPartBadge");
+      if (partBadge) {
+        partBadge.textContent = partLabels[sType] || "STORYBOARD";
+      }
 
       const sceneBadge = document.getElementById("videoSceneBadge");
       if (sceneBadge) {
@@ -1497,28 +2245,16 @@
 
       const recBadge = document.getElementById("videoRecBadge");
       if (recBadge) {
-        recBadge.innerHTML = StudioState.video.isPlaying 
-          ? `<i class="fa-solid fa-circle" style="color: #ef4444; animation: pulse 1s infinite;"></i> REC 60FPS` 
-          : `<i class="fa-solid fa-pause"></i> PAUSED`;
-      }
-
-      const avatarRig = document.getElementById("avatarRig");
-      if (avatarRig) {
-        if (StudioState.video.isPlaying) {
-          avatarRig.classList.add("speaking");
-        } else {
-          avatarRig.classList.remove("speaking");
-        }
+        recBadge.innerHTML = StudioState.video.isExporting
+          ? `<i class="fa-solid fa-circle" style="color: #ef4444; animation: pulse 1s infinite;"></i> EXPORTING WEBM`
+          : (StudioState.video.isPlaying
+              ? `<i class="fa-solid fa-circle" style="color: #10b981; animation: pulse 1s infinite;"></i> LIVE 60FPS`
+              : `<i class="fa-solid fa-pause"></i> READY 60FPS`);
       }
 
       const boardTitle = document.getElementById("videoBoardTitle");
       if (boardTitle) {
         boardTitle.textContent = currentScene ? currentScene.title : project.title;
-      }
-
-      const visualCue = document.getElementById("videoVisualCue");
-      if (visualCue) {
-        visualCue.innerHTML = currentScene ? `<i class="fa-solid fa-clapperboard"></i> 3D Staging: ${escapeHtml(currentScene.visualPrompt)}` : `<i class="fa-solid fa-clapperboard"></i> 3D Staging: Virtual Studio`;
       }
 
       const subtitles = document.getElementById("videoSubtitles");
@@ -1555,6 +2291,7 @@
           item.style.borderColor = "var(--accent-purple)";
         }
 
+        const itemType = VideoCanvasEngine.getSceneType(scene, idx);
         item.innerHTML = `
           <div class="scene-header-row">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1562,6 +2299,7 @@
               <h4 style="font-size: 0.95rem; font-weight: bold; color: #fff;">${escapeHtml(scene.title)}</h4>
             </div>
             <div class="scene-controls-row">
+              <span class="badge" style="font-size: 0.72rem;">${escapeHtml(itemType.toUpperCase())}</span>
               <span class="badge" style="font-size: 0.72rem;"><i class="fa-solid fa-video"></i> ${escapeHtml(scene.cameraAngle || 'Medium Shot')}</span>
               <span class="badge badge-purple" style="font-size: 0.72rem;"><i class="fa-solid fa-clock"></i> ${scene.durationSeconds}s</span>
               <button class="btn btn-icon btn-small scene-jump-btn" title="Preview Scene" data-idx="${idx}"><i class="fa-solid fa-play"></i></button>
@@ -1574,12 +2312,12 @@
           </div>
 
           <div class="scene-box-content">
-            <div class="scene-box-label"><i class="fa-solid fa-wand-magic-sparkles"></i> 3D Staging & Visual Prompt</div>
+            <div class="scene-box-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Staging (${escapeHtml(scene.environment || 'Modern Classroom')})</div>
             <div class="scene-box-text">${escapeHtml(scene.visualPrompt)}</div>
           </div>
 
           <div class="scene-box-content" style="background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.2);">
-            <div class="scene-box-label" style="color: var(--accent-purple-light);"><i class="fa-solid fa-microphone"></i> Spoken Teacher Narration</div>
+            <div class="scene-box-label" style="color: var(--accent-purple-light);"><i class="fa-solid fa-microphone"></i> Spoken Narration / Dialogue</div>
             <div class="scene-box-text">"${escapeHtml(scene.narration)}"</div>
           </div>
         `;
@@ -1587,6 +2325,7 @@
         item.querySelector(".scene-jump-btn").addEventListener("click", () => {
           StudioState.video.sceneIndex = idx;
           StudioState.video.elapsedSceneSeconds = 0;
+          StudioState.video.lastSpokenKey = "";
           this.render();
         });
 
@@ -1672,17 +2411,41 @@
       }
     },
 
-    speakNarration(text) {
+    speakLine(text, pitch = 1.0) {
+      if (!StudioState.video.voiceEnabled) return;
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         try {
           window.speechSynthesis.cancel();
           if (!text) return;
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = 'en-US';
-          utterance.rate = 0.95;
+          utterance.rate = 0.94;
+          utterance.pitch = pitch;
           window.speechSynthesis.speak(utterance);
         } catch (e) {
           console.warn("Speech synthesis unavailable:", e);
+        }
+      }
+    },
+
+    syncSceneAudio(scene, idx, elapsed) {
+      if (!scene || !StudioState.video.isPlaying) return;
+      const sType = VideoCanvasEngine.getSceneType(scene, idx);
+      if (sType === "listening" && Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
+        const turn = VideoCanvasEngine.getActiveDialogueTurn(scene, elapsed, scene.durationSeconds);
+        if (turn && turn.line) {
+          const key = `dlg_${idx}_${turn.index}`;
+          if (StudioState.video.lastSpokenKey !== key) {
+            StudioState.video.lastSpokenKey = key;
+            const pitch = turn.line.side === "right" ? 1.15 : 0.95;
+            this.speakLine(turn.line.text, pitch);
+          }
+        }
+      } else {
+        const key = `scene_${idx}`;
+        if (StudioState.video.lastSpokenKey !== key) {
+          StudioState.video.lastSpokenKey = key;
+          this.speakLine(scene.narration, 0.98);
         }
       }
     },
@@ -1695,21 +2458,21 @@
       }
 
       StudioState.video.isPlaying = true;
+      StudioState.video.lastSpokenKey = "";
       const playBtn = document.getElementById("playPauseBtn");
       if (playBtn) {
         playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
       }
 
-      const currentScene = project.scenes[StudioState.video.sceneIndex];
-      if (currentScene && currentScene.narration) {
-        this.speakNarration(currentScene.narration);
-      }
-
+      const currentIdx = StudioState.video.sceneIndex;
+      const currentScene = project.scenes[currentIdx];
+      this.syncSceneAudio(currentScene, currentIdx, StudioState.video.elapsedSceneSeconds);
       this.render();
 
+      if (StudioState.video.intervalId) clearInterval(StudioState.video.intervalId);
       StudioState.video.intervalId = setInterval(() => {
         this.tick();
-      }, 500);
+      }, 250);
     },
 
     pause() {
@@ -1731,24 +2494,28 @@
       let currentIdx = StudioState.video.sceneIndex;
       let currentScene = scenes[currentIdx];
 
-      StudioState.video.elapsedSceneSeconds += 0.5;
+      StudioState.video.elapsedSceneSeconds += 0.25;
 
       if (StudioState.video.elapsedSceneSeconds >= currentScene.durationSeconds) {
         if (currentIdx + 1 < scenes.length) {
           StudioState.video.sceneIndex++;
           StudioState.video.elapsedSceneSeconds = 0;
-          const nextScene = scenes[StudioState.video.sceneIndex];
-          if (nextScene && nextScene.narration) {
-            this.speakNarration(nextScene.narration);
+          StudioState.video.lastSpokenKey = "";
+          const nextIdx = StudioState.video.sceneIndex;
+          this.syncSceneAudio(scenes[nextIdx], nextIdx, 0);
+          if (typeof VideoGeneratorManager.playChime === 'function' && StudioState.video.isExporting) {
+            VideoGeneratorManager.playChime(660);
           }
           this.render();
         } else {
           StudioState.video.sceneIndex = 0;
           StudioState.video.elapsedSceneSeconds = 0;
+          StudioState.video.lastSpokenKey = "";
           this.pause();
           showToast("Storyboard video playback complete!", "success");
         }
       } else {
+        this.syncSceneAudio(currentScene, currentIdx, StudioState.video.elapsedSceneSeconds);
         this.updateScrubberDisplay();
       }
     },
@@ -1790,6 +2557,7 @@
         if (accumulated + dur >= targetSec || i === project.scenes.length - 1) {
           StudioState.video.sceneIndex = i;
           StudioState.video.elapsedSceneSeconds = Math.max(0, targetSec - accumulated);
+          StudioState.video.lastSpokenKey = "";
           break;
         }
         accumulated += dur;
@@ -1803,6 +2571,7 @@
       if (StudioState.video.sceneIndex + 1 < project.scenes.length) {
         StudioState.video.sceneIndex++;
         StudioState.video.elapsedSceneSeconds = 0;
+        StudioState.video.lastSpokenKey = "";
         this.render();
       }
     },
@@ -1811,6 +2580,7 @@
       if (StudioState.video.sceneIndex > 0) {
         StudioState.video.sceneIndex--;
         StudioState.video.elapsedSceneSeconds = 0;
+        StudioState.video.lastSpokenKey = "";
         this.render();
       }
     }
@@ -2381,6 +3151,10 @@
       document.getElementById("sceneNarrationInput").value = "";
       document.getElementById("sceneDurationInput").value = "18";
       document.getElementById("sceneAngleInput").value = "Medium Shot";
+      const typeEl = document.getElementById("sceneTypeInput");
+      if (typeEl) typeEl.value = "listening";
+      const envEl = document.getElementById("sceneEnvironmentInput");
+      if (envEl) envEl.value = "Modern Classroom";
       modal.classList.remove("hidden");
       document.getElementById("sceneTitleInput").focus();
     },
@@ -2395,6 +3169,10 @@
       document.getElementById("sceneNarrationInput").value = scene.narration;
       document.getElementById("sceneDurationInput").value = scene.durationSeconds;
       document.getElementById("sceneAngleInput").value = scene.cameraAngle || "Medium Shot";
+      const typeEl = document.getElementById("sceneTypeInput");
+      if (typeEl) typeEl.value = scene.sceneType || VideoCanvasEngine.getSceneType(scene, 0);
+      const envEl = document.getElementById("sceneEnvironmentInput");
+      if (envEl) envEl.value = scene.environment || "Modern Classroom";
       modal.classList.remove("hidden");
       document.getElementById("sceneTitleInput").focus();
     },
@@ -2409,6 +3187,10 @@
       const narration = document.getElementById("sceneNarrationInput").value.trim() || "Notice the dialogue structure.";
       const duration = parseInt(document.getElementById("sceneDurationInput").value, 10) || 15;
       const angle = document.getElementById("sceneAngleInput").value;
+      const typeEl = document.getElementById("sceneTypeInput");
+      const envEl = document.getElementById("sceneEnvironmentInput");
+      const sceneType = typeEl ? typeEl.value : "listening";
+      const environment = envEl ? envEl.value : "Modern Classroom";
 
       if (!title) {
         showToast("Please enter a scene title.", "error");
@@ -2423,19 +3205,22 @@
           scene.narration = narration;
           scene.durationSeconds = duration;
           scene.cameraAngle = angle;
+          scene.sceneType = sceneType;
+          scene.environment = environment;
           showToast("Scene updated successfully", "success");
         }
       } else {
         const newScene = {
           id: "scene_" + Date.now(),
           sceneNumber: project.scenes.length + 1,
+          sceneType: sceneType,
           title: title,
           visualPrompt: prompt,
           narration: narration,
           durationSeconds: duration,
           characterAction: "Engaging classroom instruction",
           cameraAngle: angle,
-          environment: "Virtual Studio"
+          environment: environment
         };
         project.scenes.push(newScene);
         showToast("New scene added to storyboard", "success");
@@ -2449,8 +3234,43 @@
   };
 
   const VideoGeneratorManager = {
+    audioCtx: null,
+    audioDest: null,
+
     init() {
       // Button listener added in VideoStudioRenderer.init
+    },
+
+    getSupportedMimeType() {
+      if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+        return '';
+      }
+      const candidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4'
+      ];
+      return candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+    },
+
+    playChime(freq = 587) {
+      try {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.35);
+        osc.connect(gain);
+        if (this.audioDest) gain.connect(this.audioDest);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.36);
+      } catch (e) {}
     },
 
     async handleGenerate() {
@@ -2461,49 +3281,87 @@
       }
 
       const canvas = document.getElementById("videoStageCanvas");
-      if (!canvas) {
-        showToast("Video stage not initialized.", "error");
+      if (!canvas || typeof canvas.captureStream !== 'function') {
+        showToast("Canvas video capture is not supported in this browser/WebView.", "error");
+        return;
+      }
+
+      if (typeof MediaRecorder === 'undefined') {
+        showToast("MediaRecorder API is unavailable in this environment.", "error");
         return;
       }
 
       const btn = document.getElementById("generateVideoBtn");
       const originalHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recording MP4...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Recording WebM...`;
       StudioState.video.isExporting = true;
 
       try {
-        const stream = canvas.captureStream(60);
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-        const chunks = [];
+        const videoStream = canvas.captureStream(30);
+        let finalStream = videoStream;
 
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        // Attach subtle cue audio track via Web Audio API when supported
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.audioCtx = new AudioCtx();
+            this.audioDest = this.audioCtx.createMediaStreamDestination();
+            finalStream = new MediaStream([
+              ...videoStream.getVideoTracks(),
+              ...this.audioDest.stream.getAudioTracks()
+            ]);
+            this.playChime(523);
+          }
+        } catch (audioErr) {
+          console.warn("Audio track attachment skipped:", audioErr);
+          finalStream = videoStream;
+        }
+
+        const mimeType = this.getSupportedMimeType();
+        const recorderOptions = mimeType ? { mimeType } : {};
+        const mediaRecorder = new MediaRecorder(finalStream, recorderOptions);
+        const chunks = [];
+        const isMp4 = mimeType && mimeType.includes('mp4');
+        const ext = isMp4 ? 'mp4' : 'webm';
+
+        mediaRecorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
         mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: 'video/webm' });
+          const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${project.title.replace(/\s+/g, '_')}_lesson.webm`;
+          a.download = `${project.title.replace(/[^a-z0-9]+/gi, '_')}_lesson.${ext}`;
+          document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          showToast("MP4 Export Complete!", "success");
+          if (this.audioCtx) {
+            try { this.audioCtx.close(); } catch (e) {}
+            this.audioCtx = null;
+          }
+          showToast(`${ext.toUpperCase()} Video Export Complete!`, "success");
           StudioState.video.isExporting = false;
           btn.disabled = false;
           btn.innerHTML = originalHtml;
+          VideoStudioRenderer.render();
         };
 
-        // Reset to beginning and play for recording
         StudioState.video.sceneIndex = 0;
         StudioState.video.elapsedSceneSeconds = 0;
+        StudioState.video.lastSpokenKey = "";
         VideoStudioRenderer.play();
-        mediaRecorder.start();
+        mediaRecorder.start(250);
 
-        // Calculate total duration
         const totalDurationMs = project.scenes.reduce((a, b) => a + b.durationSeconds, 0) * 1000;
         setTimeout(() => {
-          mediaRecorder.stop();
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
           VideoStudioRenderer.pause();
-        }, totalDurationMs + 1000);
+        }, totalDurationMs + 600);
 
       } catch (err) {
         console.error('Recording error:', err);

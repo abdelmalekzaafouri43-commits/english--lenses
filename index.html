@@ -350,22 +350,23 @@
               <canvas id="videoStageCanvas" width="960" height="540"></canvas>
               <div class="video-canvas-overlay">
                 <div class="video-header-status">
-                  <span class="rec-badge" id="videoRecBadge"><i class="fa-solid fa-circle"></i> REC 60FPS</span>
+                  <div class="video-status-left">
+                    <span class="rec-badge" id="videoRecBadge"><i class="fa-solid fa-circle"></i> READY 60FPS</span>
+                    <span class="part-badge" id="videoPartBadge">PART 1 • LISTENING</span>
+                  </div>
                   <span class="scene-badge" id="videoSceneBadge">Scene 1 of 4</span>
                 </div>
 
-                <div class="stage-hologram-center">
+                <!-- Hidden accessibility / legacy DOM mirror (visuals are rendered directly onto Canvas for WebM export) -->
+                <div class="stage-hologram-center hidden" aria-hidden="true">
                   <div class="avatar-rig" id="avatarRig">
                     <i class="fa-solid fa-user-tie avatar-icon"></i>
                     <div class="hologram-aura"></div>
                   </div>
-                  <div class="floating-board" id="videoBoardTitle">Mastering English Conditionals</div>
-                  <div class="visual-staging-cue" id="videoVisualCue"><i class="fa-solid fa-clapperboard"></i> 3D Staging: Classroom Hallway</div>
+                  <div class="floating-board" id="videoBoardTitle">Mastering Conditionals</div>
+                  <div class="visual-staging-cue" id="videoVisualCue">3D Staging</div>
                 </div>
-
-                <div class="subtitles-box" id="videoSubtitles">
-                  "If you had 10 seconds to investigate the anomaly, what would you do?"
-                </div>
+                <div class="subtitles-box hidden" id="videoSubtitles" aria-live="polite"></div>
               </div>
             </div>
           </div>
@@ -385,12 +386,15 @@
                 <button class="btn btn-icon" id="prevSceneBtn" title="Previous Scene"><i class="fa-solid fa-backward-step"></i></button>
                 <button class="btn btn-icon btn-play" id="playPauseBtn" title="Play / Pause"><i class="fa-solid fa-play"></i></button>
                 <button class="btn btn-icon" id="nextSceneBtn" title="Next Scene"><i class="fa-solid fa-forward-step"></i></button>
+                <button class="btn btn-outline btn-small active" id="voiceToggleBtn" title="Toggle Spoken Narration">
+                  <i class="fa-solid fa-volume-high"></i> Voice ON
+                </button>
               </div>
               <div class="controls-center">
                 <span id="playbackSceneLabel" class="playback-scene-label">Scene 1: Hook & Situational Dilemma</span>
               </div>
               <div class="controls-right">
-                <button class="btn btn-primary btn-small" id="generateVideoBtn"><i class="fa-solid fa-video"></i> Generate Video</button>
+                <button class="btn btn-primary btn-small" id="generateVideoBtn"><i class="fa-solid fa-video"></i> Export WebM</button>
                 <button class="btn btn-outline btn-small" id="enhanceScriptAiBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Script Coach</button>
                 <button class="btn btn-secondary btn-small" id="addSceneQuickBtn"><i class="fa-solid fa-plus"></i> Add Scene</button>
               </div>
@@ -619,6 +623,27 @@
         </div>
         <div class="form-row">
           <div class="form-group flex-1">
+            <label for="sceneTypeInput">Lesson Part / Mode</label>
+            <select id="sceneTypeInput">
+              <option value="listening">Part 1: Listening (2 Characters)</option>
+              <option value="vocabulary">Part 2: Vocabulary Breakdown</option>
+              <option value="speaking">Part 3: Listen &amp; Answer (Pause)</option>
+              <option value="shadowing">Part 4: Shadowing (Repeat)</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label for="sceneEnvironmentInput">Stage Environment</label>
+            <select id="sceneEnvironmentInput">
+              <option value="Cozy Cafe">Cozy Cafe</option>
+              <option value="Modern Classroom" selected>Modern Classroom</option>
+              <option value="Glass Boardroom">Glass Boardroom</option>
+              <option value="Sunny Park">Sunny Park</option>
+              <option value="Sci-Fi Bridge">Sci-Fi Bridge</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
             <label for="sceneDurationInput">Duration (sec)</label>
             <input type="number" id="sceneDurationInput" value="18" min="5" max="90">
           </div>
@@ -639,6 +664,8 @@
         </div>
       </form>
     </div>
+  </div>
+
   <!-- MODAL: AI READING GENERATOR -->
   <div class="modal-overlay hidden" id="readingGeneratorModal">
     <div class="modal-card">
