@@ -344,19 +344,22 @@
             </div>
           </div>
 
+          <!-- Video HUD Bar (above canvas so badges never cover scene content) -->
+          <div class="video-hud-bar">
+            <div class="video-header-status">
+              <div class="video-status-left">
+                <span class="rec-badge" id="videoRecBadge"><i class="fa-solid fa-circle"></i> READY 60FPS</span>
+                <span class="part-badge" id="videoPartBadge">PART 1 • LISTENING</span>
+              </div>
+              <span class="scene-badge" id="videoSceneBadge">Scene 1 of 4</span>
+            </div>
+          </div>
+
           <!-- Video Viewport Canvas Area -->
           <div class="video-viewport-wrapper aspect-16-9" id="videoViewport">
             <div class="video-screen">
               <canvas id="videoStageCanvas" width="960" height="540"></canvas>
               <div class="video-canvas-overlay">
-                <div class="video-header-status">
-                  <div class="video-status-left">
-                    <span class="rec-badge" id="videoRecBadge"><i class="fa-solid fa-circle"></i> READY 60FPS</span>
-                    <span class="part-badge" id="videoPartBadge">PART 1 • LISTENING</span>
-                  </div>
-                  <span class="scene-badge" id="videoSceneBadge">Scene 1 of 4</span>
-                </div>
-
                 <!-- Hidden accessibility / legacy DOM mirror (visuals are rendered directly onto Canvas for WebM export) -->
                 <div class="stage-hologram-center hidden" aria-hidden="true">
                   <div class="avatar-rig" id="avatarRig">

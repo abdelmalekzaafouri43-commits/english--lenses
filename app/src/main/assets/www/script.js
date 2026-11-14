@@ -1179,6 +1179,26 @@
       return idx === 0 ? "listening" : (idx === 1 ? "vocabulary" : (idx === 2 ? "speaking" : "shadowing"));
     },
 
+    getPartLabel(sType, idx, scenes, short = false) {
+      const hasFourParts = Array.isArray(scenes) && scenes.length >= 4 &&
+        this.getSceneType(scenes[0], 0) === "listening" &&
+        this.getSceneType(scenes[1], 1) === "vocabulary";
+      const partMap = {
+        listening: short ? "PART 1 • LISTENING" : "PART 1 • LISTENING PRACTICE",
+        vocabulary: short ? "PART 2 • VOCABULARY" : "PART 2 • VOCABULARY BREAKDOWN",
+        speaking: short ? "PART 3 • SPEAKING" : "PART 3 • LISTEN & ANSWER",
+        shadowing: short ? "PART 4 • SHADOWING" : "PART 4 • SHADOWING PRACTICE"
+      };
+      const modeMap = {
+        listening: short ? `SCENE ${idx + 1} • LISTENING` : "LISTENING PRACTICE",
+        vocabulary: short ? `SCENE ${idx + 1} • VOCABULARY` : "VOCABULARY BREAKDOWN",
+        speaking: short ? `SCENE ${idx + 1} • SPEAKING` : "LISTEN & ANSWER",
+        shadowing: short ? `SCENE ${idx + 1} • SHADOWING` : "SHADOWING PRACTICE"
+      };
+      if (hasFourParts && partMap[sType]) return partMap[sType];
+      return modeMap[sType] || (short ? `SCENE ${idx + 1}` : "INTERACTIVE LESSON");
+    },
+
     onSceneChanged(scene, idx, immediate = false) {
       if (!scene) return;
       const key = `${scene.id || idx}_${idx}`;
@@ -1326,7 +1346,7 @@
       }
 
       // 1. Background Environment
-      this.drawEnvironment(ctx, w, h, env, time, currentScene);
+      this.drawEnvironment(ctx, w, h, env, time, currentScene, sType);
 
       // 2. Camera Rig Transform (animated smoothly via GSAP)
       ctx.save();
@@ -1415,11 +1435,11 @@
       ctx.restore();
 
       // 7. HUD Part Banner & Burned-In Karaoke Subtitles (always crisp & exported into WebM!)
-      this.drawPartBanner(ctx, w, sType, currentScene);
+      this.drawPartBanner(ctx, w, sType, currentScene, sceneIdx, scenes);
       this.drawBurnedInSubtitles(ctx, w, h, currentScene, sType, turn, elapsed, duration);
     },
 
-    drawEnvironment(ctx, w, h, env, time, currentScene) {
+    drawEnvironment(ctx, w, h, env, time, currentScene, sType = "listening") {
       if (env.includes('Cafe') || env.includes('Café')) {
         // Cozy Sunlit Cafe
         const wallGrad = ctx.createLinearGradient(0, 0, 0, h);
@@ -1582,13 +1602,19 @@
         ctx.fillRect(boardX, boardY, boardW, boardH);
         ctx.strokeRect(boardX, boardY, boardW, boardH);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.font = '600 15px sans-serif';
-        ctx.fillText("ENGLISH LENSES • LIVE LESSON", boardX + 24, boardY + 34);
-        ctx.font = '500 13px sans-serif';
-        ctx.fillStyle = '#fde047';
-        const boardTitle = currentScene ? currentScene.title : "Interactive Lesson";
-        ctx.fillText(boardTitle.substring(0, 44), boardX + 24, boardY + 60);
+        if (sType === "listening") {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+          ctx.font = '600 15px sans-serif';
+          ctx.fillText("ENGLISH LENSES • LIVE LESSON", boardX + 24, boardY + 34);
+          ctx.font = '500 13px sans-serif';
+          ctx.fillStyle = '#fde047';
+          const boardTitle = currentScene ? currentScene.title : "Interactive Lesson";
+          ctx.fillText(boardTitle.substring(0, 44), boardX + 24, boardY + 60);
+        } else {
+          // Subtle chalk tray when interactive card sits over right half of board
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(boardX + 16, boardY + boardH - 6, boardW - 32, 6);
+        }
       }
     },
 
@@ -1855,7 +1881,7 @@
 
       ctx.save();
       ctx.translate(0, (1 - this.stage.cardReveal) * 20);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.97)';
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -1871,10 +1897,16 @@
       ctx.font = '800 12px sans-serif';
       ctx.fillText(`VOCABULARY ${cardIdx + 1} OF ${cards.length}`, bx + 28, by + 35);
 
-      // Word
+      // Word (dynamically sized to prevent overflow)
+      const wordText = (card.word || '').toUpperCase();
+      let wordFontSize = 24;
+      ctx.font = `800 ${wordFontSize}px sans-serif`;
+      while (ctx.measureText(wordText).width > bw - 40 && wordFontSize > 16) {
+        wordFontSize -= 2;
+        ctx.font = `800 ${wordFontSize}px sans-serif`;
+      }
       ctx.fillStyle = '#fde047';
-      ctx.font = '800 26px sans-serif';
-      ctx.fillText((card.word || '').toUpperCase(), bx + 20, by + 80);
+      ctx.fillText(wordText, bx + 20, by + 80);
 
       // Definition
       ctx.fillStyle = '#f8fafc';
@@ -2017,27 +2049,21 @@
       ctx.restore();
     },
 
-    drawPartBanner(ctx, w, sType, scene) {
+    drawPartBanner(ctx, w, sType, scene, sceneIdx = 0, scenes = []) {
       if (this.stage.bannerAlpha <= 0.02) return;
-      const labels = {
-        listening: "PART 1 • LISTENING PRACTICE",
-        vocabulary: "PART 2 • VOCABULARY BREAKDOWN",
-        speaking: "PART 3 • LISTEN & ANSWER",
-        shadowing: "PART 4 • SHADOWING PRACTICE"
-      };
-      const text = labels[sType] || (scene ? scene.title.toUpperCase() : "LESSON");
+      const text = this.getPartLabel(sType, sceneIdx, scenes, false);
       ctx.save();
       ctx.globalAlpha = this.stage.bannerAlpha;
-      ctx.fillStyle = 'rgba(139, 92, 246, 0.92)';
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.94)';
       ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') ctx.roundRect(w / 2 - 165, 16, 330, 32, 16);
-      else ctx.rect(w / 2 - 165, 16, 330, 32);
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(w / 2 - 165, 14, 330, 30, 15);
+      else ctx.rect(w / 2 - 165, 14, 330, 30);
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '800 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(text, w / 2, 36);
+      ctx.fillText(text, w / 2, 33);
       ctx.restore();
     },
 
@@ -2226,16 +2252,10 @@
       }
       VideoCanvasEngine.drawFrame();
 
-      const partLabels = {
-        listening: "PART 1 • LISTENING",
-        vocabulary: "PART 2 • VOCABULARY",
-        speaking: "PART 3 • SPEAKING",
-        shadowing: "PART 4 • SHADOWING"
-      };
       const sType = VideoCanvasEngine.getSceneType(currentScene, currentIdx);
       const partBadge = document.getElementById("videoPartBadge");
       if (partBadge) {
-        partBadge.textContent = partLabels[sType] || "STORYBOARD";
+        partBadge.textContent = VideoCanvasEngine.getPartLabel(sType, currentIdx, scenes, true);
       }
 
       const sceneBadge = document.getElementById("videoSceneBadge");
