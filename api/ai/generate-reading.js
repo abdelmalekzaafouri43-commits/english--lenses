@@ -1,10 +1,12 @@
-const { callGeminiApi, parseAiJson } = require('../utils.js');
+const { callGeminiApi, parseAiJson, applyCors } = require('../utils.js');
 
 module.exports = async (req, res) => {
+  if (applyCors(req, res)) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-  const { subject, level, theme } = req.body;
+  const { subject, level, theme } = req.body || {};
 
   const prompt = `
 Create an engaging school curriculum reading text and topic analysis for English language learners:

@@ -85,10 +85,10 @@
         </div>
         
         <div class="topbar-right">
-          <div class="engine-status-pill">
+          <button type="button" class="engine-status-pill" id="engineStatusPill" title="Click to check or configure AI Backend Server">
             <span class="status-indicator-dot"></span>
-            <span>Gemini AI Logic Ready</span>
-          </div>
+            <span id="engineStatusLabel">Gemini AI Logic Ready</span>
+          </button>
           <button class="btn btn-secondary" id="topbarSaveFirebaseBtn" title="Sync project to Firebase Firestore">
             <i class="fa-solid fa-cloud-arrow-up"></i>
             <span>Save to Cloud</span>
@@ -723,6 +723,40 @@
           <button type="button" class="btn btn-secondary" data-close-modal="scriptCoachModal">Cancel</button>
           <button type="submit" class="btn btn-primary" id="scriptCoachSubmitBtn">
             <i class="fa-solid fa-bolt"></i> Polish Narration & Staging
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AI BACKEND SERVER CONFIGURATION -->
+  <div class="modal-overlay hidden" id="backendConfigModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-server"></i> Connect AI Backend Server</h3>
+        <button class="modal-close-btn" data-close-modal="backendConfigModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="backendConfigForm">
+        <div class="backend-help-banner">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>Why do AI &amp; worksheet uploads fail on GitHub Pages (405)?</strong>
+            <p>GitHub Pages (<code>*.github.io</code>) only serves static files and rejects <code>POST /api/...</code> requests. Open your <strong>Vercel deployment URL</strong> directly, or paste your Vercel URL below to connect.</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="backendUrlInput">Backend Server URL (Vercel / Node.js)</label>
+          <input type="url" id="backendUrlInput" placeholder="https://english-lenses.vercel.app">
+          <small class="form-hint">Leave blank on Vercel or localhost to use same-origin <code>/api/*</code>.</small>
+        </div>
+        <div id="backendTestStatus" class="backend-status-box hidden"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="clearBackendBtn">Reset Default</button>
+          <button type="button" class="btn btn-secondary" id="testBackendBtn">
+            <i class="fa-solid fa-plug"></i> Test Connection
+          </button>
+          <button type="submit" class="btn btn-primary" id="saveBackendBtn">
+            <i class="fa-solid fa-check"></i> Save &amp; Connect
           </button>
         </div>
       </form>

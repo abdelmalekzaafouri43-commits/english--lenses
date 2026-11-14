@@ -1,11 +1,13 @@
-const { callGeminiApi, parseAiJson } = require('../utils.js');
+const { callGeminiApi, parseAiJson, applyCors } = require('../utils.js');
 
 module.exports = async (req, res) => {
+  if (applyCors(req, res)) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { topic, grammar, vocabulary, level } = req.body;
+  const { topic, grammar, vocabulary, level } = req.body || {};
 
   const prompt = `
 Create 3 high-quality multiple choice comprehension and grammar assessment questions for:

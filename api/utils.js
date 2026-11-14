@@ -3,6 +3,41 @@ const path = require('path');
 
 let inMemoryApiKey = null;
 
+function applyCors(req, res) {
+  const origin = req.headers && req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-gemini-key');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return true;
+  }
+  return false;
+}
+
+function normalizeMimeType(mimeType = '', fileName = '') {
+  let clean = String(mimeType || '').split(';')[0].trim().toLowerCase();
+  if (clean === 'image/jpg' || clean === 'image/pjpeg') {
+    clean = 'image/jpeg';
+  }
+  if (!clean || clean === 'application/octet-stream') {
+    const ext = path.extname(String(fileName || '')).toLowerCase();
+    if (ext === '.jpg' || ext === '.jpeg') clean = 'image/jpeg';
+    else if (ext === '.png') clean = 'image/png';
+    else if (ext === '.webp') clean = 'image/webp';
+    else if (ext === '.pdf') clean = 'application/pdf';
+    else if (ext === '.docx') clean = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  return clean;
+}
+
 function getGeminiApiKey(req = null) {
   if (inMemoryApiKey && inMemoryApiKey !== 'MY_GEMINI_API_KEY') {
     return inMemoryApiKey;
@@ -22,18 +57,17 @@ function getGeminiApiKey(req = null) {
 async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false, req = null, fileData = null) {
   const apiKey = getGeminiApiKey(req);
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured.');
+    throw new Error('GEMINI_API_KEY is not configured in server environment variables.');
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
   const parts = [{ text: prompt }];
-  
+
   if (fileData) {
+    const cleanBase64 = String(fileData.base64 || '').replace(/^data:[^;]+;base64,/i, '');
     parts.push({
       inlineData: {
-        mimeType: fileData.mimeType,
-        data: fileData.base64
+        mimeType: normalizeMimeType(fileData.mimeType),
+        data: cleanBase64
       }
     });
   }
@@ -53,23 +87,59 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
     requestBody.generationConfig.responseMimeType = "application/json";
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody)
-  });
+  const candidateModels = [...new Set([
+    process.env.GEMINI_MODEL,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash'
+  ].filter(Boolean))];
 
-  const data = await response.json();
+  let lastError = null;
 
-  if (!response.ok) {
-    throw new Error(data.error ? data.error.message : `Gemini API returned status ${response.status}`);
+  for (const model of candidateModels) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const msg = data.error ? data.error.message : `Gemini API returned status ${response.status}`;
+        lastError = new Error(msg);
+        if (response.status === 404 || /not found|not supported|deprecated/i.test(msg)) {
+          continue;
+        }
+        throw lastError;
+      }
+
+      if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+        throw new Error('Gemini API returned an empty response.');
+      }
+
+      return data.candidates[0].content.parts.map(p => p.text || '').join('');
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Gemini API request timed out.');
+      }
+      lastError = err;
+      if (err === lastError && /not found|not supported|deprecated/i.test(err.message || '')) {
+        continue;
+      }
+      throw err;
+    }
   }
 
-  if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-    throw new Error('Gemini API returned an empty response.');
-  }
-
-  return data.candidates[0].content.parts.map(p => p.text).join('');
+  throw lastError || new Error('Gemini API request failed.');
 }
 
 function parseAiJson(text) {
@@ -90,4 +160,4 @@ function parseAiJson(text) {
   }
 }
 
-module.exports = { getGeminiApiKey, callGeminiApi, parseAiJson };
+module.exports = { getGeminiApiKey, callGeminiApi, parseAiJson, applyCors, normalizeMimeType };

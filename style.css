@@ -327,7 +327,7 @@ body {
 }
 
 .engine-status-pill {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -337,6 +337,24 @@ body {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--accent-green);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.engine-status-pill:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.engine-status-pill.offline {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.engine-status-pill.offline:hover {
+  background: rgba(245, 158, 11, 0.2);
 }
 
 .status-indicator-dot {
@@ -345,6 +363,12 @@ body {
   border-radius: 50%;
   background-color: var(--accent-green);
   box-shadow: 0 0 8px var(--accent-green);
+  flex-shrink: 0;
+}
+
+.engine-status-pill.offline .status-indicator-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
 }
 
 /* CONTENT CONTAINER & VIEWS */
@@ -1719,6 +1743,68 @@ body {
     font-size: 0.66rem;
     padding: 3px 7px;
   }
+}
+
+/* Backend Config Modal Helpers */
+.backend-help-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.backend-help-banner i {
+  color: #fbbf24;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.backend-help-banner p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+.backend-help-banner code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.backend-status-box {
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.backend-status-box.success {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+}
+
+.backend-status-box.error {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
 }
 
 /* Print Styles for Printable Worksheet */

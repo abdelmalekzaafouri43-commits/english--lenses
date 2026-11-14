@@ -88,6 +88,22 @@ function getGeminiApiKey(req = null) {
 }
 
 
+function normalizeMimeType(mimeType = '', fileName = '') {
+  let clean = String(mimeType || '').split(';')[0].trim().toLowerCase();
+  if (clean === 'image/jpg' || clean === 'image/pjpeg') {
+    clean = 'image/jpeg';
+  }
+  if (!clean || clean === 'application/octet-stream') {
+    const ext = path.extname(String(fileName || '')).toLowerCase();
+    if (ext === '.jpg' || ext === '.jpeg') clean = 'image/jpeg';
+    else if (ext === '.png') clean = 'image/png';
+    else if (ext === '.webp') clean = 'image/webp';
+    else if (ext === '.pdf') clean = 'application/pdf';
+    else if (ext === '.docx') clean = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  return clean;
+}
+
 // Helper to make secure server-side call to Gemini API
 async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false, req = null, fileData = null) {
   const apiKey = getGeminiApiKey(req);
@@ -95,15 +111,14 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
     throw new Error('GEMINI_API_KEY is not configured. Please add your GEMINI_API_KEY to the AI Studio Secrets panel.');
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
   const parts = [{ text: prompt }];
-  
+
   if (fileData) {
+    const cleanBase64 = String(fileData.base64 || '').replace(/^data:[^;]+;base64,/i, '');
     parts.push({
       inlineData: {
-        mimeType: fileData.mimeType,
-        data: fileData.base64
+        mimeType: normalizeMimeType(fileData.mimeType),
+        data: cleanBase64
       }
     });
   }
@@ -130,41 +145,62 @@ async function callGeminiApi(prompt, systemInstruction = '', jsonOutput = false,
     requestBody.generationConfig.responseMimeType = "application/json";
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for analysis
+  const candidateModels = [...new Set([
+    process.env.GEMINI_MODEL,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash'
+  ].filter(Boolean))];
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal
-    });
+  let lastError = null;
 
-    clearTimeout(timeoutId);
+  for (const model of candidateModels) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for analysis
 
-    const data = await response.json();
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      const errorMsg = data.error ? data.error.message : `Gemini API returned status ${response.status}`;
-      throw new Error(errorMsg);
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = data.error ? data.error.message : `Gemini API returned status ${response.status}`;
+        lastError = new Error(errorMsg);
+        if (response.status === 404 || /not found|not supported|deprecated/i.test(errorMsg)) {
+          continue;
+        }
+        throw lastError;
+      }
+
+      if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
+        throw new Error('Gemini API returned an empty response.');
+      }
+
+      return data.candidates[0].content.parts.map(p => p.text || '').join('');
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Gemini API request timed out after 60 seconds.');
+      }
+      lastError = err;
+      if (err === lastError && /not found|not supported|deprecated/i.test(err.message || '')) {
+        continue;
+      }
+      throw err;
     }
-
-    if (!data.candidates || data.candidates.length === 0 || !data.candidates[0].content) {
-      throw new Error('Gemini API returned an empty response.');
-    }
-
-    const text = data.candidates[0].content.parts.map(p => p.text).join('');
-    return text;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error('Gemini API request timed out after 60 seconds.');
-    }
-    throw err;
   }
+
+  throw lastError || new Error('Gemini API request failed.');
 }
 
 // Robust JSON parser for AI responses that strips markdown code blocks or trailing/leading text
@@ -217,6 +253,7 @@ const server = http.createServer(async (req, res) => {
   const isAllowed = origin && (
     allowedOrigins.includes(origin) || 
     origin.endsWith('.github.io') || 
+    origin.endsWith('.vercel.app') ||
     origin.includes('europe-west2.run.app') || // AI Studio Preview
     origin.includes('aistudio.google.com')
   );
@@ -281,11 +318,11 @@ const server = http.createServer(async (req, res) => {
       res.end('Method Not Allowed');
       return;
     }
-    const hasKey = !!getGeminiApiKey();
+    const hasKey = !!getGeminiApiKey(req);
     sendJson(200, {
       status: 'ok',
       hasGeminiApiKey: hasKey,
-      engine: 'Gemini 1.5 Flash',
+      engine: 'Gemini 2.5 Flash',
       service: 'English Lenses Secure Studio Backend',
       diagnostics: {
         method: req.method,
@@ -596,7 +633,9 @@ Respond with a JSON object:
     }
     try {
       const body = await parseBody();
-      const { fileName, mimeType, base64 } = body;
+      const { fileName, mimeType: rawMimeType, base64: rawBase64 } = body || {};
+      const mimeType = normalizeMimeType(rawMimeType, fileName);
+      const base64 = typeof rawBase64 === 'string' ? rawBase64.replace(/^data:[^;]+;base64,/i, '') : '';
 
       if (!base64 || !mimeType) {
         return sendJson(400, { error: 'File data and mimeType are required.' });
@@ -629,8 +668,11 @@ Respond with a JSON object strictly matching this schema:
         // Handle DOCX via mammoth extraction
         const buffer = Buffer.from(base64, 'base64');
         const docResult = await mammoth.extractRawText({ buffer: buffer });
-        const docText = docResult.value;
-        
+        const docText = (docResult && docResult.value ? docResult.value : '').trim();
+        if (!docText) {
+          return sendJson(400, { error: 'Could not extract readable text from the DOCX file.' });
+        }
+
         const textPrompt = `
 ${analysisPrompt}
 ---
@@ -638,7 +680,7 @@ DOCX CONTENT START:
 ${docText}
 DOCX CONTENT END.
 `;
-        aiResponse = await callGeminiApi(textPrompt, 'You are an educational materials analyst.', true);
+        aiResponse = await callGeminiApi(textPrompt, 'You are an educational materials analyst.', true, req);
       } else {
         // Handle PDF and Images directly via multimodal Gemini
         aiResponse = await callGeminiApi(analysisPrompt, 'You are an educational materials analyst.', true, req, { mimeType, base64 });

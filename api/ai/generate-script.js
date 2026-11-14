@@ -1,10 +1,12 @@
-const { callGeminiApi, parseAiJson } = require('../utils.js');
+const { callGeminiApi, parseAiJson, applyCors } = require('../utils.js');
 
 module.exports = async (req, res) => {
+  if (applyCors(req, res)) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-  const { sceneTitle, goal, level, grammar, currentNarration } = req.body;
+  const { sceneTitle, goal, level, grammar, currentNarration } = req.body || {};
 
   const prompt = `
 You are an expert English teacher voice coach and video director.

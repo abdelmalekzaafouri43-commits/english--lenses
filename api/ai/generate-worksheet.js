@@ -1,11 +1,13 @@
-const { callGeminiApi, parseAiJson } = require('../utils.js');
+const { callGeminiApi, parseAiJson, applyCors } = require('../utils.js');
 
 module.exports = async (req, res) => {
+  if (applyCors(req, res)) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { title, topic, level, grammar, vocabulary, lessonContent } = req.body;
+  const { title, topic, level, grammar, vocabulary, lessonContent } = req.body || {};
 
   const prompt = `
 Create a comprehensive, printable educational English worksheet for:

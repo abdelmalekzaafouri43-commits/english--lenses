@@ -14,9 +14,22 @@
     try {
       result = text ? JSON.parse(text) : {};
     } catch (e) {
+      if (response.status === 405 && API_CONFIG.isStaticHostWithoutBackend()) {
+        const err = new Error('GitHub Pages is static hosting (HTTP 405). Connect your Vercel Backend URL or open your Vercel deployment.');
+        err.code = 'STATIC_HOST_405';
+        throw err;
+      }
+      if (response.status === 413) {
+        throw new Error('Uploaded file is too large for the serverless payload limit (413). Try a smaller file or lower resolution.');
+      }
       throw new Error(`Server response error (${response.status}): ${text.substring(0, 100)}`);
     }
     if (!response.ok) {
+      if (response.status === 405 && API_CONFIG.isStaticHostWithoutBackend()) {
+        const err = new Error('GitHub Pages is static hosting (HTTP 405). Connect your Vercel Backend URL or open your Vercel deployment.');
+        err.code = 'STATIC_HOST_405';
+        throw err;
+      }
       throw new Error(result.error || `Request failed with status ${response.status}`);
     }
     return result;
@@ -25,18 +38,54 @@
   /* ==========================================================================
      0. API CONFIGURATION
      ========================================================================== */
+  const BACKEND_URL_STORAGE_KEY = 'english_lenses_backend_url';
+
   const API_CONFIG = {
+    normalizeUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      return url.trim().replace(/\/+$/, '');
+    },
+
     get BASE_URL() {
       if (typeof window === 'undefined') return '';
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const queryApi = this.normalizeUrl(params.get('api') || '');
+        if (queryApi && /^https?:\/\//i.test(queryApi)) {
+          try { localStorage.setItem(BACKEND_URL_STORAGE_KEY, queryApi); } catch (e) {}
+          return queryApi;
+        }
+      } catch (e) {}
       if (window.ENGLISH_LENSES_API_URL) {
-        return window.ENGLISH_LENSES_API_URL;
+        return this.normalizeUrl(window.ENGLISH_LENSES_API_URL);
       }
+      try {
+        const saved = this.normalizeUrl(localStorage.getItem(BACKEND_URL_STORAGE_KEY) || '');
+        if (saved) return saved;
+      } catch (e) {}
       if (window.location.protocol === 'file:') {
         return 'http://10.0.2.2:3000';
       }
       return ''; // Same-origin for Vercel, Localhost, and AI Studio Preview
     },
-    
+
+    setBaseUrl(url) {
+      const clean = this.normalizeUrl(url);
+      if (typeof window !== 'undefined') {
+        try {
+          if (clean) localStorage.setItem(BACKEND_URL_STORAGE_KEY, clean);
+          else localStorage.removeItem(BACKEND_URL_STORAGE_KEY);
+        } catch (e) {}
+      }
+      return clean;
+    },
+
+    isStaticHostWithoutBackend() {
+      if (typeof window === 'undefined') return false;
+      const host = (window.location && window.location.hostname) || '';
+      return host.endsWith('.github.io') && !this.BASE_URL;
+    },
+
     get(path) {
       return this.BASE_URL + path;
     }
@@ -3632,18 +3681,35 @@
       }
     },
 
+    resolveMimeType(file) {
+      if (!file) return '';
+      let mime = String(file.type || '').split(';')[0].trim().toLowerCase();
+      if (mime === 'image/jpg' || mime === 'image/pjpeg') {
+        mime = 'image/jpeg';
+      }
+      if (!mime || mime === 'application/octet-stream') {
+        const lowerName = String(file.name || '').toLowerCase();
+        if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) mime = 'image/jpeg';
+        else if (lowerName.endsWith('.png')) mime = 'image/png';
+        else if (lowerName.endsWith('.webp')) mime = 'image/webp';
+        else if (lowerName.endsWith('.pdf')) mime = 'application/pdf';
+        else if (lowerName.endsWith('.docx')) mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
+      return mime;
+    },
+
     processFile(file) {
       const allowedTypes = [
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'image/jpeg',
-        'image/jpg',
         'image/png',
         'image/webp'
       ];
+      const resolvedMime = this.resolveMimeType(file);
 
-      if (!allowedTypes.includes(file.type) && !file.name.endsWith('.docx')) {
-        showToast("Unsupported file format. Please upload PDF, DOCX, or images.", "error");
+      if (!allowedTypes.includes(resolvedMime)) {
+        showToast("Unsupported file format. Please upload PDF, DOCX, JPG, PNG, or WEBP.", "error");
         return;
       }
 
@@ -3653,20 +3719,83 @@
       }
 
       this.selectedFile = file;
-      document.getElementById("fileNameLabel").textContent = file.name;
-      document.getElementById("selectedFileName").classList.remove("hidden");
-      document.getElementById("analyzeWorksheetBtn").disabled = false;
+      const label = document.getElementById("fileNameLabel");
+      const selectedBox = document.getElementById("selectedFileName");
+      const analyzeBtn = document.getElementById("analyzeWorksheetBtn");
+      if (label) label.textContent = file.name;
+      if (selectedBox) selectedBox.classList.remove("hidden");
+      if (analyzeBtn) analyzeBtn.disabled = false;
     },
 
     clearFile() {
       this.selectedFile = null;
-      document.getElementById("worksheetFileInput").value = "";
-      document.getElementById("selectedFileName").classList.add("hidden");
-      document.getElementById("analyzeWorksheetBtn").disabled = true;
+      const input = document.getElementById("worksheetFileInput");
+      const selectedBox = document.getElementById("selectedFileName");
+      const analyzeBtn = document.getElementById("analyzeWorksheetBtn");
+      if (input) input.value = "";
+      if (selectedBox) selectedBox.classList.add("hidden");
+      if (analyzeBtn) analyzeBtn.disabled = true;
+    },
+
+    async prepareFilePayload(file) {
+      const resolvedMime = this.resolveMimeType(file);
+
+      if (resolvedMime.startsWith('image/') && file.size > 900 * 1024 && typeof document !== 'undefined' && typeof Image !== 'undefined') {
+        try {
+          const compressed = await this.compressImageFile(file);
+          if (compressed && compressed.base64) {
+            return compressed;
+          }
+        } catch (err) {
+          console.warn('Image compression skipped, using original file:', err.message);
+        }
+      }
+
+      const base64 = await this.fileToBase64(file);
+      return { mimeType: resolvedMime, base64 };
+    },
+
+    compressImageFile(file, maxDimension = 1600, quality = 0.84) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Failed to decode image'));
+          img.onload = () => {
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
+            if (width > maxDimension || height > maxDimension) {
+              const scale = maxDimension / Math.max(width, height);
+              width = Math.max(1, Math.round(width * scale));
+              height = Math.max(1, Math.round(height * scale));
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('No 2D context'));
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            const base64 = dataUrl.split(',')[1];
+            resolve({ mimeType: 'image/jpeg', base64 });
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
     },
 
     async handleAnalyze() {
       if (!this.selectedFile) return;
+
+      if (API_CONFIG.isStaticHostWithoutBackend()) {
+        showToast("GitHub Pages cannot run AI analysis directly (405). Enter your Vercel backend URL to continue.", "error");
+        if (typeof BackendConfigManager !== 'undefined') {
+          BackendConfigManager.open("Your current site is on GitHub Pages (static hosting), which returns 405 for /api requests. Paste your Vercel backend URL below or open the app on Vercel.");
+        }
+        return;
+      }
 
       const analyzeBtn = document.getElementById("analyzeWorksheetBtn");
       const originalHtml = analyzeBtn.innerHTML;
@@ -3674,15 +3803,15 @@
       analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzing with Gemini AI...`;
 
       try {
-        const base64 = await this.fileToBase64(this.selectedFile);
-        
+        const payload = await this.prepareFilePayload(this.selectedFile);
+
         const response = await fetch(API_CONFIG.get('/api/ai/analyze-worksheet'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fileName: this.selectedFile.name,
-            mimeType: this.selectedFile.type || (this.selectedFile.name.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : ''),
-            base64: base64
+            mimeType: payload.mimeType,
+            base64: payload.base64
           })
         });
 
@@ -3693,6 +3822,9 @@
       } catch (err) {
         console.error('Analysis error:', err);
         showToast(err.message, "error");
+        if (err.code === 'STATIC_HOST_405' && typeof BackendConfigManager !== 'undefined') {
+          BackendConfigManager.open(err.message);
+        }
       } finally {
         analyzeBtn.disabled = false;
         analyzeBtn.innerHTML = originalHtml;
@@ -3791,30 +3923,140 @@
   }
 
   /* ==========================================================================
+     12.5 BACKEND CONNECTION MANAGER
+     ========================================================================== */
+  const BackendConfigManager = {
+    init() {
+      const pill = document.getElementById("engineStatusPill");
+      const form = document.getElementById("backendConfigForm");
+      const testBtn = document.getElementById("testBackendBtn");
+      const clearBtn = document.getElementById("clearBackendBtn");
+
+      if (pill) {
+        pill.addEventListener("click", () => this.open());
+      }
+      if (testBtn) {
+        testBtn.addEventListener("click", () => {
+          const input = document.getElementById("backendUrlInput");
+          this.testUrl(input ? input.value : '');
+        });
+      }
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          API_CONFIG.setBaseUrl('');
+          const input = document.getElementById("backendUrlInput");
+          if (input) input.value = '';
+          this.setStatusMessage('Reset to same-origin default.', 'success');
+          this.checkHealth();
+        });
+      }
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const input = document.getElementById("backendUrlInput");
+          const saved = API_CONFIG.setBaseUrl(input ? input.value : '');
+          const ok = await this.checkHealth();
+          if (ok) {
+            const modal = document.getElementById("backendConfigModal");
+            if (modal) modal.classList.add("hidden");
+            showToast(saved ? `Connected to ${saved}` : "Connected to local AI backend.", "success");
+          }
+        });
+      }
+
+      this.checkHealth();
+    },
+
+    open(initialError = '') {
+      const modal = document.getElementById("backendConfigModal");
+      const input = document.getElementById("backendUrlInput");
+      if (!modal) return;
+      if (input) input.value = API_CONFIG.BASE_URL;
+      if (initialError) {
+        this.setStatusMessage(initialError, 'error');
+      } else {
+        const statusBox = document.getElementById("backendTestStatus");
+        if (statusBox) statusBox.classList.add("hidden");
+      }
+      modal.classList.remove("hidden");
+      if (input) input.focus();
+    },
+
+    setStatusMessage(msg, type) {
+      const statusBox = document.getElementById("backendTestStatus");
+      if (!statusBox) return;
+      statusBox.textContent = msg;
+      statusBox.className = `backend-status-box ${type}`;
+    },
+
+    updatePill(connected, labelText) {
+      const pill = document.getElementById("engineStatusPill");
+      const label = document.getElementById("engineStatusLabel");
+      if (pill) {
+        pill.classList.toggle("offline", !connected);
+        pill.title = connected
+          ? `Connected to ${API_CONFIG.BASE_URL || 'Same-Origin'} — Click to configure`
+          : 'AI Backend Not Connected — Click to set Vercel URL';
+      }
+      if (label && labelText) {
+        label.textContent = labelText;
+      }
+    },
+
+    async testUrl(rawUrl) {
+      const clean = API_CONFIG.normalizeUrl(rawUrl);
+      const endpoint = (clean || '') + '/api/health';
+      this.setStatusMessage(`Testing ${endpoint}...`, 'info');
+      try {
+        const res = await fetch(endpoint);
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok || !contentType.includes("application/json")) {
+          throw new Error(`HTTP ${res.status} — not an English Lenses JSON backend.`);
+        }
+        const data = await res.json();
+        const keyMsg = data.hasGeminiApiKey ? 'Gemini key ready.' : 'Warning: GEMINI_API_KEY not set on server.';
+        this.setStatusMessage(`Connected (${data.engine || 'OK'}). ${keyMsg}`, data.hasGeminiApiKey ? 'success' : 'error');
+        return true;
+      } catch (err) {
+        this.setStatusMessage(`Connection failed: ${err.message}`, 'error');
+        return false;
+      }
+    },
+
+    async checkHealth() {
+      if (API_CONFIG.isStaticHostWithoutBackend()) {
+        this.updatePill(false, 'Connect AI Backend');
+        return false;
+      }
+      try {
+        const res = await fetch(API_CONFIG.get('/api/health'));
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok || !contentType.includes("application/json")) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!data.hasGeminiApiKey) {
+          this.updatePill(false, 'API Key Missing');
+          showToast("Gemini API Key missing in backend config.", "error");
+          return false;
+        }
+        this.updatePill(true, 'Gemini AI Logic Ready');
+        return true;
+      } catch (err) {
+        console.warn("Backend health check notice:", err.message);
+        this.updatePill(false, 'Backend Offline');
+        return false;
+      }
+    }
+  };
+
+  /* ==========================================================================
      13. APPLICATION BOOTSTRAP
      ========================================================================== */
   document.addEventListener("DOMContentLoaded", () => {
     StudioState.init();
     NavigationRouter.init();
-    
-    // Perform Backend Health Check
-    fetch(API_CONFIG.get('/api/health'))
-      .then(r => {
-        const contentType = r.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          return r.json();
-        }
-        throw new Error("Non-JSON response (Sandbox auth proxy)");
-      })
-      .then(data => {
-        console.log("Backend Connected:", data);
-        if (!data.hasGeminiApiKey) {
-          showToast("Gemini API Key missing in backend config.", "error");
-        }
-      })
-      .catch(err => {
-        console.warn("Backend health check notice:", err.message);
-      });
+    BackendConfigManager.init();
 
     DashboardRenderer.render();
     LessonGeneratorController.init();
@@ -3833,7 +4075,7 @@
     WorksheetAnalyzerManager.init();
 
     NavigationRouter.updateSidebarActiveCard();
-    console.log("English Lenses Educational Video Studio ready. Connected to Secure Gemini AI Backend.");
+    console.log("English Lenses Educational Video Studio ready.");
   });
 
 })();
