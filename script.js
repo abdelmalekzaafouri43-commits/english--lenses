@@ -387,7 +387,11 @@
         this.save();
         this.video.sceneIndex = 0;
         this.video.elapsedSceneSeconds = 0;
+        this.video.lastSpokenKey = "";
         this.stopVideoPlayback();
+        if (typeof VideoCanvasEngine !== 'undefined' && typeof VideoCanvasEngine.resetTransition === 'function') {
+          VideoCanvasEngine.resetTransition();
+        }
       }
     },
 
@@ -1107,8 +1111,23 @@
     particles: [],
     starfield: [],
     lastSceneKey: null,
+    lastSceneIdx: -1,
     lastTeacherX: 0.28,
     lastPartnerX: 1.2,
+    outgoingCanvas: null,
+    outgoingCtx: null,
+    incomingCanvas: null,
+    incomingCtx: null,
+    transition: {
+      active: false,
+      progress: 1,
+      direction: 1
+    },
+    vocabAnim: {
+      lastKey: "",
+      offsetX: 0,
+      alpha: 1
+    },
     stage: {
       camZoom: 1.0,
       camPanX: 0,
@@ -1122,8 +1141,51 @@
       partnerScale: 0.97,
       partnerAlpha: 0,
       boardAlpha: 1,
+      boardSlideX: 0,
       cardReveal: 1,
       bannerAlpha: 0
+    },
+
+    resetTransition() {
+      if (typeof gsap !== 'undefined') {
+        gsap.killTweensOf(this.transition);
+        gsap.killTweensOf(this.vocabAnim);
+      }
+      this.transition.active = false;
+      this.transition.progress = 1;
+      this.lastSceneKey = null;
+      this.lastSceneIdx = -1;
+      this.vocabAnim.lastKey = "";
+      this.vocabAnim.offsetX = 0;
+      this.vocabAnim.alpha = 1;
+    },
+
+    ensureTransitionBuffers(w, h) {
+      if (typeof document === 'undefined' || !w || !h) return false;
+      try {
+        if (!this.outgoingCanvas) {
+          this.outgoingCanvas = document.createElement('canvas');
+          this.outgoingCtx = this.outgoingCanvas.getContext('2d');
+        }
+        if (!this.incomingCanvas) {
+          this.incomingCanvas = document.createElement('canvas');
+          this.incomingCtx = this.incomingCanvas.getContext('2d');
+        }
+        if (!this.outgoingCtx || !this.incomingCtx || typeof this.outgoingCtx.drawImage !== 'function') {
+          return false;
+        }
+        if (this.outgoingCanvas.width !== w || this.outgoingCanvas.height !== h) {
+          this.outgoingCanvas.width = w;
+          this.outgoingCanvas.height = h;
+        }
+        if (this.incomingCanvas.width !== w || this.incomingCanvas.height !== h) {
+          this.incomingCanvas.width = w;
+          this.incomingCanvas.height = h;
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
     },
 
     init() {
@@ -1203,7 +1265,39 @@
       if (!scene) return;
       const key = `${scene.id || idx}_${idx}`;
       if (this.lastSceneKey === key && !immediate) return;
+
+      const hadPreviousScene = Boolean(this.lastSceneKey);
+      const direction = (this.lastSceneIdx !== -1 && idx < this.lastSceneIdx) ? -1 : 1;
       this.lastSceneKey = key;
+      this.lastSceneIdx = idx;
+
+      // Capture outgoing frame snapshot & trigger GSAP cross-fade + directional slide
+      if (!immediate && hadPreviousScene && typeof gsap !== 'undefined' && this.canvas) {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        if (this.ensureTransitionBuffers(w, h)) {
+          try {
+            this.outgoingCtx.clearRect(0, 0, w, h);
+            this.outgoingCtx.drawImage(this.canvas, 0, 0, w, h);
+          } catch (e) {}
+        }
+        gsap.killTweensOf(this.transition);
+        this.transition.active = true;
+        this.transition.progress = 0;
+        this.transition.direction = direction;
+        gsap.to(this.transition, {
+          duration: 0.78,
+          progress: 1,
+          ease: "power3.inOut",
+          onComplete: () => {
+            this.transition.active = false;
+          }
+        });
+      } else {
+        if (typeof gsap !== 'undefined') gsap.killTweensOf(this.transition);
+        this.transition.active = false;
+        this.transition.progress = 1;
+      }
 
       const sType = this.getSceneType(scene, idx);
       const angle = scene.cameraAngle || 'Medium Shot';
@@ -1264,6 +1358,7 @@
         this.stage.partnerX = partnerTargetX;
         this.stage.partnerAlpha = partnerAlpha;
         this.stage.boardAlpha = boardAlpha;
+        this.stage.boardSlideX = 0;
         this.stage.cardReveal = 1;
         this.stage.bannerAlpha = 1;
         return;
@@ -1271,6 +1366,7 @@
 
       gsap.killTweensOf(this.stage);
       this.stage.cardReveal = 0;
+      this.stage.boardSlideX = direction * 68;
       this.stage.bannerAlpha = 1;
 
       gsap.to(this.stage, {
@@ -1287,9 +1383,10 @@
       });
 
       gsap.to(this.stage, {
-        duration: 0.75,
-        delay: 0.2,
-        ease: "back.out(1.2)",
+        duration: 0.78,
+        delay: 0.14,
+        ease: "power3.out",
+        boardSlideX: 0,
         cardReveal: 1
       });
 
@@ -1343,6 +1440,57 @@
 
       if (currentScene && !this.lastSceneKey) {
         this.onSceneChanged(currentScene, sceneIdx, true);
+      }
+
+      const useBufferedTransition =
+        this.transition.active &&
+        this.transition.progress < 0.999 &&
+        this.ensureTransitionBuffers(w, h) &&
+        typeof ctx.drawImage === 'function';
+
+      if (useBufferedTransition) {
+        const p = Math.min(1, Math.max(0, this.transition.progress));
+        const dir = this.transition.direction || 1;
+        const slideDist = w * 0.28;
+
+        this.incomingCtx.clearRect(0, 0, w, h);
+        this.renderSceneToContext(this.incomingCtx, w, h, time, project, scenes, sceneIdx, currentScene, sType, env, isPlaying, elapsed, duration);
+
+        // Dark studio backdrop prevents seam flashes during cross-dissolve + slide
+        ctx.save();
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, w, h);
+
+        // Outgoing scene sliding out + fading out
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        ctx.translate(-dir * slideDist * p, 0);
+        ctx.drawImage(this.outgoingCanvas, 0, 0, w, h);
+        ctx.restore();
+
+        // Incoming scene sliding in + fading in
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, p);
+        ctx.translate(dir * slideDist * (1 - p), 0);
+        ctx.drawImage(this.incomingCanvas, 0, 0, w, h);
+        ctx.restore();
+
+        ctx.restore();
+        return;
+      }
+
+      this.renderSceneToContext(ctx, w, h, time, project, scenes, sceneIdx, currentScene, sType, env, isPlaying, elapsed, duration);
+    },
+
+    renderSceneToContext(ctx, w, h, time, project, scenes, sceneIdx, currentScene, sType, env, isPlaying, elapsed, duration) {
+      // Fallback slide/fade when offscreen canvas buffers are unavailable (e.g., headless tests)
+      const directTransition = this.transition.active && this.transition.progress < 0.999;
+      ctx.save();
+      if (directTransition) {
+        const p = Math.min(1, Math.max(0, this.transition.progress));
+        const dir = this.transition.direction || 1;
+        ctx.globalAlpha = 0.25 + 0.75 * p;
+        ctx.translate(dir * w * 0.16 * (1 - p), 0);
       }
 
       // 1. Background Environment
@@ -1418,10 +1566,11 @@
         this.drawSpeechBubble(ctx, bubbleX, bubbleY, turn.line.speaker, turn.line.text, activeSpeaker === "partner" ? "#34d399" : "#38bdf8", w);
       }
 
-      // 6. Instructional Board / Interactive Cards for Vocabulary, Speaking, Shadowing
+      // 6. Instructional Board / Interactive Cards (with GSAP slide + cross-fade reveal)
       if (this.stage.boardAlpha > 0.05 && sType !== "listening") {
         ctx.save();
-        ctx.globalAlpha = this.stage.boardAlpha;
+        ctx.globalAlpha = this.stage.boardAlpha * Math.max(0, Math.min(1, this.stage.cardReveal));
+        ctx.translate(this.stage.boardSlideX || 0, 0);
         if (sType === "vocabulary") {
           this.drawVocabularyBoard(ctx, w, h, time, currentScene, project, elapsed, duration);
         } else if (sType === "speaking") {
@@ -1437,6 +1586,7 @@
       // 7. HUD Part Banner & Burned-In Karaoke Subtitles (always crisp & exported into WebM!)
       this.drawPartBanner(ctx, w, sType, currentScene, sceneIdx, scenes);
       this.drawBurnedInSubtitles(ctx, w, h, currentScene, sType, turn, elapsed, duration);
+      ctx.restore();
     },
 
     drawEnvironment(ctx, w, h, env, time, currentScene, sType = "listening") {
@@ -1879,8 +2029,29 @@
       const cardIdx = Math.min(cards.length - 1, Math.max(0, Math.floor(elapsed / perCard)));
       const card = cards[cardIdx];
 
+      const vocabKey = `${scene ? scene.id : 's'}_${cardIdx}`;
+      if (this.vocabAnim.lastKey !== vocabKey) {
+        const hadKey = Boolean(this.vocabAnim.lastKey);
+        this.vocabAnim.lastKey = vocabKey;
+        if (hadKey && typeof gsap !== 'undefined') {
+          gsap.killTweensOf(this.vocabAnim);
+          this.vocabAnim.offsetX = 36;
+          this.vocabAnim.alpha = 0;
+          gsap.to(this.vocabAnim, {
+            duration: 0.45,
+            offsetX: 0,
+            alpha: 1,
+            ease: "power2.out"
+          });
+        } else {
+          this.vocabAnim.offsetX = 0;
+          this.vocabAnim.alpha = 1;
+        }
+      }
+
       ctx.save();
-      ctx.translate(0, (1 - this.stage.cardReveal) * 20);
+      ctx.globalAlpha *= this.vocabAnim.alpha;
+      ctx.translate(this.vocabAnim.offsetX, (1 - this.stage.cardReveal) * 20);
       ctx.fillStyle = 'rgba(15, 23, 42, 0.97)';
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 2.5;
