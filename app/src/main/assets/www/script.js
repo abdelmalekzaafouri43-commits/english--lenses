@@ -340,26 +340,33 @@
     },
 
     init() {
+      let seededEepNow = false;
       const stored = localStorage.getItem("english_lenses_projects");
       if (stored) {
         try {
           this.projects = JSON.parse(stored);
-          // Ensure featured English Easy Practice demo is available if not already present
+          // Ensure featured English Easy Practice demo is available and surfaced once if newly added
           if (!this.projects.some(p => p.id === "demo_project_eep")) {
             this.projects.unshift(JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS[0])));
+            seededEepNow = true;
             this.save();
           }
         } catch (e) {
           console.warn("Failed to parse stored projects, falling back to seed", e);
           this.projects = JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS));
+          seededEepNow = true;
         }
       } else {
         this.projects = JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS));
+        seededEepNow = true;
         this.save();
       }
 
       const activeId = localStorage.getItem("english_lenses_active_project");
-      if (activeId && this.projects.some(p => p.id === activeId)) {
+      if (seededEepNow) {
+        this.activeProjectId = "demo_project_eep";
+        this.save();
+      } else if (activeId && this.projects.some(p => p.id === activeId)) {
         this.activeProjectId = activeId;
       } else if (this.projects.length > 0) {
         this.activeProjectId = this.projects[0].id;
@@ -2657,6 +2664,17 @@
 
       const currentIdx = StudioState.video.sceneIndex;
       const currentScene = project.scenes[currentIdx];
+      const sType = VideoCanvasEngine.getSceneType(currentScene, currentIdx);
+      if (StudioState.video.elapsedSceneSeconds < 0.5 && sType === "listening" && typeof gsap !== 'undefined') {
+        VideoCanvasEngine.stage.teacherX = 0.08;
+        VideoCanvasEngine.stage.partnerX = 0.94;
+        gsap.to(VideoCanvasEngine.stage, {
+          duration: 1.05,
+          ease: "power2.out",
+          teacherX: VideoCanvasEngine.stage.teacherTargetX,
+          partnerX: VideoCanvasEngine.stage.partnerTargetX
+        });
+      }
       this.syncSceneAudio(currentScene, currentIdx, StudioState.video.elapsedSceneSeconds);
       this.render();
 
