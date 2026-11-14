@@ -340,31 +340,29 @@
     },
 
     init() {
-      let seededEepNow = false;
       const stored = localStorage.getItem("english_lenses_projects");
       if (stored) {
         try {
           this.projects = JSON.parse(stored);
-          // Ensure featured English Easy Practice demo is available and surfaced once if newly added
+          // Ensure featured English Easy Practice demo is always up-to-date in projects list
           if (!this.projects.some(p => p.id === "demo_project_eep")) {
             this.projects.unshift(JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS[0])));
-            seededEepNow = true;
             this.save();
           }
         } catch (e) {
           console.warn("Failed to parse stored projects, falling back to seed", e);
           this.projects = JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS));
-          seededEepNow = true;
         }
       } else {
         this.projects = JSON.parse(JSON.stringify(INITIAL_DEMO_PROJECTS));
-        seededEepNow = true;
         this.save();
       }
 
       const activeId = localStorage.getItem("english_lenses_active_project");
-      if (seededEepNow) {
+      const hasShownEepV2 = localStorage.getItem("english_lenses_eep_v2_shown") === "1";
+      if (!hasShownEepV2 && this.projects.some(p => p.id === "demo_project_eep")) {
         this.activeProjectId = "demo_project_eep";
+        try { localStorage.setItem("english_lenses_eep_v2_shown", "1"); } catch (e) {}
         this.save();
       } else if (activeId && this.projects.some(p => p.id === activeId)) {
         this.activeProjectId = activeId;
